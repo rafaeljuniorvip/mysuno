@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wand2, Sparkles, FileText, Copy, Check, Loader2 } from 'lucide-react';
+import { Wand2, Sparkles, FileText, Copy, Check, Loader2, Music } from 'lucide-react';
 import api from '../services/api';
 import Card from '../components/ui/Card';
 import AudioPlayer from '../components/ui/AudioPlayer';
