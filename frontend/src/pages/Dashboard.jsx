@@ -71,20 +71,15 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     setLoading(true);
-    try {
-      const [limitsRes, summaryRes, songsRes] = await Promise.all([
-        api.get('/suno/limit'),
-        api.get('/reports/summary'),
-        api.get('/songs?limit=5&sort=created_at&order=DESC'),
-      ]);
-      setLimits(limitsRes.data);
-      setSummary(summaryRes.data);
-      setRecentSongs(songsRes.data.data || []);
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
-    } finally {
-      setLoading(false);
-    }
+    const [limitsRes, summaryRes, songsRes] = await Promise.allSettled([
+      api.get('/suno/limit'),
+      api.get('/reports/summary'),
+      api.get('/songs?limit=5&sort=created_at&order=DESC'),
+    ]);
+    if (limitsRes.status === 'fulfilled') setLimits(limitsRes.value.data);
+    if (summaryRes.status === 'fulfilled') setSummary(summaryRes.value.data);
+    if (songsRes.status === 'fulfilled') setRecentSongs(songsRes.value.data.data || []);
+    setLoading(false);
   };
 
   useEffect(() => {
