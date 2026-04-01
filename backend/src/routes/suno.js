@@ -11,7 +11,7 @@ router.post('/generate', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[POST /api/suno/generate]', err.response?.data || err.message);
-    res.status(500).json({ error: err.response?.data || err.message });
+    res.status(500).json({ error: err.response?.data?.msg || err.message });
   }
 });
 
@@ -23,7 +23,7 @@ router.post('/custom_generate', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[POST /api/suno/custom_generate]', err.response?.data || err.message);
-    res.status(500).json({ error: err.response?.data || err.message });
+    res.status(500).json({ error: err.response?.data?.msg || err.message });
   }
 });
 
@@ -35,7 +35,7 @@ router.post('/generate_lyrics', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[POST /api/suno/generate_lyrics]', err.response?.data || err.message);
-    res.status(500).json({ error: err.response?.data || err.message });
+    res.status(500).json({ error: err.response?.data?.msg || err.message });
   }
 });
 
@@ -47,7 +47,7 @@ router.post('/extend_audio', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[POST /api/suno/extend_audio]', err.response?.data || err.message);
-    res.status(500).json({ error: err.response?.data || err.message });
+    res.status(500).json({ error: err.response?.data?.msg || err.message });
   }
 });
 
@@ -57,8 +57,26 @@ router.get('/limit', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[GET /api/suno/limit]', err.response?.data || err.message);
-    res.status(500).json({ error: err.response?.data || err.message });
+    res.status(500).json({ error: err.response?.data?.msg || err.message });
   }
+});
+
+// Generation status polling (frontend uses this)
+router.get('/status/:generationId', async (req, res) => {
+  try {
+    const result = await suno.getGenerationStatus(req.params.generationId);
+    if (!result) return res.status(404).json({ error: 'Generation not found' });
+    res.json(result);
+  } catch (err) {
+    console.error('[GET /api/suno/status]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Callback endpoint for sunoapi.org (receives results when ready)
+router.post('/callback', async (req, res) => {
+  console.log('[Suno Callback] Received:', JSON.stringify(req.body).slice(0, 200));
+  res.json({ ok: true });
 });
 
 module.exports = router;

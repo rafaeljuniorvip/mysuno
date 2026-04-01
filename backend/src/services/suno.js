@@ -4,6 +4,7 @@ const { getToken } = require('./auth');
 const { pool } = require('../config/database');
 
 const SUNOAPI_BASE = 'https://api.sunoapi.org';
+const CALLBACK_URL = 'https://api.mysn.vipte.co/api/suno/callback';
 
 // Client for sunoapi.org (generation, lyrics, extend)
 function sunoApiClient() {
@@ -37,25 +38,22 @@ async function generate({ prompt, make_instrumental = false, wait_audio = false 
     prompt,
     instrumental: make_instrumental,
     model: 'V5_5',
+    callBackUrl: CALLBACK_URL,
   };
 
   const response = await client.post('/api/v1/generate', requestData);
   const taskId = response.data.data?.taskId;
-
-  const generation = await saveGeneration('generate', prompt, requestData, response.data);
-
-  if (wait_audio && taskId) {
-    const result = await pollTask(taskId);
-    const clips = normalizeClips(result);
-    await saveClips(clips);
-    await updateGeneration(generation.id, 'complete');
-    return clips;
+  if (!taskId && response.data.code !== 200) {
+    throw new Error(response.data.msg || 'Failed to start generation');
   }
 
-  // Start background polling to save clips when ready
+  const generation = await saveGeneration('generate', prompt, requestData, response.data);
+  await saveTaskMapping(taskId, generation.id);
+
+  // Always poll in background to save results
   if (taskId) pollAndSave(taskId, generation.id);
 
-  return { taskId, ...response.data };
+  return { taskId, generationId: generation.id, status: 'generating' };
 }
 
 async function customGenerate({ prompt, tags, title, make_instrumental = false, wait_audio = false }) {
@@ -67,29 +65,26 @@ async function customGenerate({ prompt, tags, title, make_instrumental = false, 
     title: title || '',
     instrumental: make_instrumental,
     model: 'V5_5',
+    callBackUrl: CALLBACK_URL,
   };
 
   const response = await client.post('/api/v1/generate', requestData);
   const taskId = response.data.data?.taskId;
+  if (!taskId && response.data.code !== 200) {
+    throw new Error(response.data.msg || 'Failed to start generation');
+  }
 
   const generation = await saveGeneration('custom_generate', prompt, requestData, response.data);
-
-  if (wait_audio && taskId) {
-    const result = await pollTask(taskId);
-    const clips = normalizeClips(result);
-    await saveClips(clips);
-    await updateGeneration(generation.id, 'complete');
-    return clips;
-  }
+  await saveTaskMapping(taskId, generation.id);
 
   if (taskId) pollAndSave(taskId, generation.id);
 
-  return { taskId, ...response.data };
+  return { taskId, generationId: generation.id, status: 'generating' };
 }
 
 async function generateLyrics(prompt) {
   const client = sunoApiClient();
-  const response = await client.post('/api/v1/lyrics', { prompt });
+  const response = await client.post('/api/v1/lyrics', { prompt, callBackUrl: CALLBACK_URL });
   const taskId = response.data.data?.taskId;
 
   await saveGeneration('lyrics', prompt, { prompt }, response.data);
@@ -144,24 +139,66 @@ async function extendAudio({ audio_id, prompt, continue_at, tags, title, wait_au
     title: title || '',
     continueAt: continue_at || 0,
     model: 'V5_5',
+    callBackUrl: CALLBACK_URL,
   };
 
   const response = await client.post('/api/v1/generate/extend', requestData);
   const taskId = response.data.data?.taskId;
+  if (!taskId && response.data.code !== 200) {
+    throw new Error(response.data.msg || 'Failed to start extension');
+  }
 
   const generation = await saveGeneration('extend', prompt, requestData, response.data);
-
-  if (wait_audio && taskId) {
-    const result = await pollTask(taskId);
-    const clips = normalizeClips(result);
-    await saveClips(clips);
-    await updateGeneration(generation.id, 'complete');
-    return clips;
-  }
+  await saveTaskMapping(taskId, generation.id);
 
   if (taskId) pollAndSave(taskId, generation.id);
 
-  return { taskId, ...response.data };
+  return { taskId, generationId: generation.id, status: 'generating' };
+}
+
+// --- Task tracking ---
+
+async function saveTaskMapping(taskId, generationId) {
+  if (!taskId) return;
+  await pool.query(
+    "UPDATE generations SET response_data = jsonb_set(COALESCE(response_data, '{}')::jsonb, '{taskId}', $1::jsonb) WHERE id = $2",
+    [JSON.stringify(taskId), generationId]
+  );
+}
+
+async function getGenerationStatus(generationId) {
+  const gen = await pool.query('SELECT * FROM generations WHERE id = $1', [generationId]);
+  if (gen.rows.length === 0) return null;
+  const g = gen.rows[0];
+
+  if (g.status === 'complete' || g.status === 'failed') {
+    const songs = await pool.query(
+      "SELECT * FROM songs WHERE created_at >= $1 AND created_at <= $2 + interval '5 minutes' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 4",
+      [g.created_at, g.created_at]
+    );
+    return { ...g, songs: songs.rows };
+  }
+
+  // Try to poll if we have taskId
+  const taskId = g.response_data?.taskId;
+  if (taskId && g.status === 'pending') {
+    try {
+      const client = sunoApiClient();
+      const result = await client.get(`/api/v1/generate/record-info?taskId=${taskId}`);
+      const data = result.data.data;
+      if (data?.status === 'SUCCESS') {
+        const clips = normalizeClips(data);
+        await saveClips(clips);
+        await updateGeneration(generationId, 'complete');
+        return { ...g, status: 'complete', songs: clips };
+      }
+      return { ...g, sunoStatus: data?.status || 'PENDING' };
+    } catch {
+      return { ...g, sunoStatus: 'PENDING' };
+    }
+  }
+
+  return g;
 }
 
 // --- sunoapi.org polling ---
@@ -188,14 +225,14 @@ function normalizeClips(taskData) {
     prompt: clip.prompt || null,
     tags: clip.tags || null,
     lyric: clip.prompt || null,
-    audio_url: clip.audioUrl || null,
-    stream_audio_url: clip.streamAudioUrl || null,
-    image_url: clip.imageUrl || null,
-    video_url: clip.videoUrl || null,
+    audio_url: clip.sourceAudioUrl || clip.audioUrl || null,
+    stream_audio_url: clip.sourceStreamAudioUrl || clip.streamAudioUrl || null,
+    image_url: clip.sourceImageUrl || clip.imageUrl || null,
+    video_url: null,
     model_name: clip.modelName || 'V5_5',
-    status: clip.audioUrl ? 'complete' : 'pending',
+    status: (clip.audioUrl || clip.sourceAudioUrl) ? 'complete' : 'pending',
     duration: clip.duration || null,
-    created_at: clip.createTime || new Date().toISOString(),
+    created_at: clip.createTime ? new Date(clip.createTime).toISOString() : new Date().toISOString(),
   }));
 }
 
@@ -290,4 +327,4 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-module.exports = { generate, customGenerate, generateLyrics, get, getLimit, extendAudio, syncPendingSongs };
+module.exports = { generate, customGenerate, generateLyrics, get, getLimit, extendAudio, syncPendingSongs, getGenerationStatus };
