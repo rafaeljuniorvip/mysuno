@@ -1,7 +1,9 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: '/api',
-});
+const baseURL = import.meta.env.PROD
+  ? 'https://api.mysn.vipte.co/api'
+  : '/api';
+
+const api = axios.create({ baseURL });
 
 export default api;
