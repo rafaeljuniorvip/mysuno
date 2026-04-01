@@ -10,6 +10,8 @@ import SongDetail from './pages/SongDetail';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import ApiDocs from './pages/ApiDocs';
+import Models from './pages/Models';
+import Lyrics from './pages/Lyrics';
 
 const GOOGLE_CLIENT_ID = '141913349498-n6mfefb0k7p559grf0l6gdkn65dt2bi6.apps.googleusercontent.com';
 
@@ -47,6 +49,8 @@ function AppRoutes() {
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/api-docs" element={<ApiDocs />} />
+                <Route path="/models" element={<Models />} />
+                <Route path="/lyrics" element={<Lyrics />} />
               </Routes>
             </main>
           </div>

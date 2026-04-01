@@ -10,11 +10,12 @@ const apikeysRoutes = require('./routes/apikeys');
 const sunoRoutes = require('./routes/suno');
 const songsRoutes = require('./routes/songs');
 const reportsRoutes = require('./routes/reports');
+const openrouterRoutes = require('./routes/openrouter');
 
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Public routes
 app.use('/api/auth', authRoutes);
@@ -25,6 +26,7 @@ app.use('/api/keys', apikeysRoutes);
 app.use('/api/suno', combinedAuth, sunoRoutes);
 app.use('/api/songs', combinedAuth, songsRoutes);
 app.use('/api/reports', combinedAuth, reportsRoutes);
+app.use('/api/ai', combinedAuth, openrouterRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'mysuno-api' });
