@@ -7,5 +7,5 @@ module.exports = {
   SUNO_SESSION_ID: process.env.SUNO_SESSION_ID,
   CLERK_JS_VERSION: process.env.CLERK_JS_VERSION || '5.117.0',
   CLERK_BASE_URL: 'https://auth.suno.com',
-  SUNO_API_BASE_URL: 'https://studio-api.suno.ai',
+  SUNO_API_BASE_URL: 'https://studio-api.prod.suno.com',
 };

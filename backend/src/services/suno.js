@@ -19,7 +19,7 @@ async function apiClient() {
 
 async function generate({ prompt, make_instrumental = false, wait_audio = false }) {
   const client = await apiClient();
-  const requestData = { gpt_description_prompt: prompt, make_instrumental, mv: 'chirp-v4' };
+  const requestData = { gpt_description_prompt: prompt, make_instrumental, mv: 'chirp-fenix' };
   const response = await client.post('/api/generate/v2/', requestData);
 
   const generation = await saveGeneration('generate', prompt, requestData, response.data);
@@ -38,7 +38,7 @@ async function generate({ prompt, make_instrumental = false, wait_audio = false 
 
 async function customGenerate({ prompt, tags, title, make_instrumental = false, wait_audio = false }) {
   const client = await apiClient();
-  const requestData = { prompt, tags, title, make_instrumental, mv: 'chirp-v4' };
+  const requestData = { prompt, tags, title, make_instrumental, mv: 'chirp-fenix' };
   const response = await client.post('/api/generate/v2/', requestData);
 
   const generation = await saveGeneration('custom_generate', prompt, requestData, response.data);
@@ -90,16 +90,18 @@ async function getLimit() {
   const response = await client.get('/api/billing/info/');
   const data = response.data;
   return {
-    credits_left: data.total_credits_left,
+    credits_left: data.total_credits_left ?? data.credits,
     period: data.period,
     monthly_limit: data.monthly_limit,
     monthly_usage: data.monthly_usage,
+    plan: data.plan?.name,
+    renews_on: data.renews_on,
   };
 }
 
 async function extendAudio({ audio_id, prompt, continue_at, tags, title, wait_audio = false }) {
   const client = await apiClient();
-  const requestData = { prompt, tags, title, continue_clip_id: audio_id, continue_at, mv: 'chirp-v4' };
+  const requestData = { prompt, tags, title, continue_clip_id: audio_id, continue_at, mv: 'chirp-fenix' };
   const response = await client.post('/api/generate/v2/', requestData);
 
   const generation = await saveGeneration('extend', prompt, requestData, response.data);
