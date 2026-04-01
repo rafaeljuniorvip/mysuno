@@ -3,6 +3,10 @@ const cors = require('cors');
 const config = require('./config/env');
 const { runMigrations } = require('./config/database');
 const { refreshToken, startKeepAlive } = require('./services/auth');
+const { combinedAuth } = require('./middlewares/auth');
+const authRoutes = require('./routes/auth');
+const usersRoutes = require('./routes/users');
+const apikeysRoutes = require('./routes/apikeys');
 const sunoRoutes = require('./routes/suno');
 const songsRoutes = require('./routes/songs');
 const reportsRoutes = require('./routes/reports');
@@ -12,9 +16,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/suno', sunoRoutes);
-app.use('/api/songs', songsRoutes);
-app.use('/api/reports', reportsRoutes);
+// Public routes
+app.use('/api/auth', authRoutes);
+
+// Protected routes (JWT or API Key)
+app.use('/api/users', usersRoutes);
+app.use('/api/keys', apikeysRoutes);
+app.use('/api/suno', combinedAuth, sunoRoutes);
+app.use('/api/songs', combinedAuth, songsRoutes);
+app.use('/api/reports', combinedAuth, reportsRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'mysuno-api' });
