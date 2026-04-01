@@ -4,10 +4,10 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/generate', icon: Music, label: 'Generate' },
-  { to: '/songs', icon: ListMusic, label: 'Songs' },
-  { to: '/reports', icon: BarChart3, label: 'Reports' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/generate', icon: Music, label: 'Gerar Musica' },
+  { to: '/songs', icon: ListMusic, label: 'Musicas' },
+  { to: '/reports', icon: BarChart3, label: 'Relatorios' },
+  { to: '/settings', icon: Settings, label: 'Configuracoes' },
 ];
 
 export default function Sidebar() {
@@ -16,7 +16,9 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <Music size={24} color="var(--primary)" />
+        <div className="sidebar-logo-icon">
+          <Music size={20} />
+        </div>
         <h1>MySuno</h1>
       </div>
       <nav className="sidebar-nav">
@@ -27,7 +29,7 @@ export default function Sidebar() {
             end={item.to === '/'}
             className={({ isActive }) => (isActive ? 'active' : '')}
           >
-            <item.icon />
+            <item.icon size={20} />
             <span>{item.label}</span>
           </NavLink>
         ))}
@@ -38,7 +40,7 @@ export default function Sidebar() {
             {user.picture && <img src={user.picture} alt="" className="sidebar-avatar" />}
             <span className="sidebar-username">{user.name?.split(' ')[0]}</span>
           </div>
-          <button onClick={logout} className="sidebar-logout" title="Logout">
+          <button onClick={logout} className="sidebar-logout" title="Sair">
             <LogOut size={18} />
           </button>
         </div>

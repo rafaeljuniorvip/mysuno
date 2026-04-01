@@ -1,6 +1,6 @@
-export default function Card({ title, children }) {
+export default function Card({ title, children, className = '' }) {
   return (
-    <div className="card">
+    <div className={`card ${className}`}>
       {title && (
         <div className="card-header">
           <h3>{title}</h3>

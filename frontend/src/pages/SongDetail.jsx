@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Clock, Music, Tag, Calendar, Cpu, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Clock, Music, Tag, Calendar, Cpu, ExternalLink, Loader2, Hash } from 'lucide-react';
 import api from '../services/api';
 import Card from '../components/ui/Card';
 import AudioPlayer from '../components/ui/AudioPlayer';
+
+const statusLabels = {
+  complete: 'Completo',
+  streaming: 'Transmitindo',
+  pending: 'Pendente',
+};
 
 const statusColors = {
   complete: { bg: '#e8f5e9', color: '#2e7d32' },
@@ -15,17 +21,27 @@ const inputStyle = {
   width: '100%',
   padding: '10px 14px',
   border: '1px solid #ddd',
-  borderRadius: '6px',
+  borderRadius: '8px',
   fontSize: '14px',
   outline: 'none',
   fontFamily: 'inherit',
   boxSizing: 'border-box',
+  backgroundColor: '#fafafa',
+  transition: 'border-color 0.2s',
+};
+
+const labelStyle = {
+  display: 'block',
+  fontSize: '13px',
+  fontWeight: 600,
+  color: '#555',
+  marginBottom: '6px',
 };
 
 const DetailRow = ({ icon: Icon, label, value }) => (
-  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-    <Icon size={16} color="#888" style={{ marginTop: '2px', flexShrink: 0 }} />
-    <div style={{ minWidth: '120px', fontSize: '13px', fontWeight: 500, color: '#888' }}>{label}</div>
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+    <Icon size={16} color="#999" style={{ marginTop: '2px', flexShrink: 0 }} />
+    <div style={{ minWidth: '120px', fontSize: '13px', fontWeight: 600, color: '#999' }}>{label}</div>
     <div style={{ fontSize: '14px', color: '#333', flex: 1, wordBreak: 'break-word' }}>{value || '--'}</div>
   </div>
 );
@@ -36,7 +52,7 @@ export default function SongDetail() {
   const [song, setSong] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Extend audio state
+  // Estender audio
   const [extendContinueAt, setExtendContinueAt] = useState('');
   const [extendPrompt, setExtendPrompt] = useState('');
   const [extendTags, setExtendTags] = useState('');
@@ -50,8 +66,8 @@ export default function SongDetail() {
         const res = await api.get(`/songs/${id}`);
         setSong(res.data);
       } catch (err) {
-        console.error('Failed to fetch song:', err);
-        alert('Failed to load song details.');
+        console.error('Falha ao carregar musica:', err);
+        alert('Falha ao carregar detalhes da musica.');
         navigate('/songs');
       } finally {
         setLoading(false);
@@ -61,13 +77,13 @@ export default function SongDetail() {
   }, [id, navigate]);
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this song? This action cannot be undone.')) return;
+    if (!window.confirm('Tem certeza que deseja excluir esta musica? Esta acao nao pode ser desfeita.')) return;
     try {
       await api.delete(`/songs/${id}`);
       navigate('/songs');
     } catch (err) {
-      console.error('Delete failed:', err);
-      alert('Failed to delete song.');
+      console.error('Falha ao excluir:', err);
+      alert('Falha ao excluir musica.');
     }
   };
 
@@ -86,8 +102,8 @@ export default function SongDetail() {
       });
       setExtendResult(Array.isArray(res.data) ? res.data : [res.data]);
     } catch (err) {
-      console.error('Extend failed:', err);
-      alert('Failed to extend audio.');
+      console.error('Falha ao estender:', err);
+      alert('Falha ao estender audio.');
     } finally {
       setExtending(false);
     }
@@ -103,7 +119,8 @@ export default function SongDetail() {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', color: '#888' }}>
-        Loading...
+        <Loader2 size={28} className="spin" style={{ marginRight: '10px' }} />
+        Carregando...
       </div>
     );
   }
@@ -114,207 +131,232 @@ export default function SongDetail() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <button
             onClick={() => navigate('/songs')}
             style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '8px 14px', border: '1px solid #ddd', borderRadius: '6px',
-              background: '#fff', cursor: 'pointer', fontSize: '14px', color: '#555',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              border: '1px solid #e0e0e0',
+              borderRadius: '8px',
+              background: '#fff',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              color: '#555',
+              transition: 'background-color 0.15s',
             }}
           >
-            <ArrowLeft size={16} /> Back
+            <ArrowLeft size={16} /> Voltar
           </button>
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#333' }}>
-            {song.title || 'Untitled Song'}
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#1a1a1a' }}>
+            {song.title || 'Sem titulo'}
           </h1>
           <span style={{
-            padding: '4px 12px', borderRadius: '12px', fontSize: '12px',
-            fontWeight: 600, backgroundColor: s.bg, color: s.color,
+            padding: '4px 14px',
+            borderRadius: '20px',
+            fontSize: '12px',
+            fontWeight: 600,
+            backgroundColor: s.bg,
+            color: s.color,
           }}>
-            {song.status}
+            {statusLabels[song.status] || song.status}
           </span>
         </div>
         <button
           onClick={handleDelete}
           style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '8px 16px', backgroundColor: '#fff', color: '#d32f2f',
-            border: '1px solid #d32f2f', borderRadius: '6px', cursor: 'pointer',
-            fontSize: '14px', fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '10px 18px',
+            backgroundColor: '#fff',
+            color: '#d32f2f',
+            border: '1px solid #d32f2f',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 600,
+            transition: 'background-color 0.15s',
           }}
         >
-          <Trash2 size={16} /> Delete
+          <Trash2 size={16} /> Excluir Musica
         </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        {/* Left: Details */}
-        <div>
-          <Card title="Song Details">
-            <DetailRow icon={Music} label="Title" value={song.title} />
-            <DetailRow icon={Tag} label="Tags / Style" value={song.tags} />
-            <DetailRow icon={Clock} label="Duration" value={formatDuration(song.duration)} />
-            <DetailRow icon={Cpu} label="Model" value={song.model_name || song.model} />
-            <DetailRow icon={Calendar} label="Created" value={
-              song.created_at ? new Date(song.created_at).toLocaleString('pt-BR') : '--'
+        {/* Esquerda: Detalhes */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <Card title="Detalhes">
+            <DetailRow icon={Music} label="Titulo" value={song.title} />
+            <DetailRow icon={Hash} label="ID Suno" value={
+              song.suno_id ? <span style={{ fontFamily: 'monospace', fontSize: '13px' }}>{song.suno_id}</span> : '--'
             } />
-            <DetailRow icon={Music} label="Suno ID" value={
-              <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{song.suno_id}</span>
+            <DetailRow icon={Tag} label="Estilo" value={song.tags} />
+            <DetailRow icon={Clock} label="Duracao" value={formatDuration(song.duration)} />
+            <DetailRow icon={Cpu} label="Modelo" value={song.model_name || song.model} />
+            <DetailRow icon={Calendar} label="Criado em" value={
+              song.created_at ? new Date(song.created_at).toLocaleString('pt-BR') : '--'
             } />
           </Card>
 
           {/* Prompt */}
           {song.prompt && (
-            <div style={{ marginTop: '16px' }}>
-              <Card title="Prompt">
-                <p style={{ margin: 0, fontSize: '14px', color: '#333', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                  {song.prompt}
-                </p>
-              </Card>
-            </div>
+            <Card title="Prompt">
+              <p style={{ margin: 0, fontSize: '14px', color: '#444', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                {song.prompt}
+              </p>
+            </Card>
           )}
 
-          {/* Lyrics */}
+          {/* Letra */}
           {song.lyric && (
-            <div style={{ marginTop: '16px' }}>
-              <Card title="Lyrics">
-                <pre style={{
-                  margin: 0, fontSize: '14px', color: '#333',
-                  whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.6,
-                }}>
-                  {song.lyric}
-                </pre>
-              </Card>
-            </div>
+            <Card title="Letra">
+              <pre style={{
+                margin: 0,
+                fontSize: '14px',
+                color: '#444',
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'inherit',
+                lineHeight: 1.7,
+              }}>
+                {song.lyric}
+              </pre>
+            </Card>
           )}
         </div>
 
-        {/* Right: Media & Extend */}
-        <div>
-          {/* Audio Player */}
+        {/* Direita: Midia e Estender */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Audio */}
           {song.audio_url && (
             <Card title="Audio">
               <AudioPlayer src={song.audio_url} title={song.title} />
             </Card>
           )}
 
-          {/* Image */}
+          {/* Imagem de capa */}
           {song.image_url && (
-            <div style={{ marginTop: '16px' }}>
-              <Card title="Cover Image">
-                <img
-                  src={song.image_url}
-                  alt={song.title}
-                  style={{ width: '100%', borderRadius: '6px', maxHeight: '300px', objectFit: 'cover' }}
-                />
-              </Card>
-            </div>
+            <Card title="Capa">
+              <img
+                src={song.image_url}
+                alt={song.title}
+                style={{ width: '100%', borderRadius: '8px', maxHeight: '300px', objectFit: 'cover' }}
+              />
+            </Card>
           )}
 
-          {/* Video Link */}
+          {/* Video */}
           {song.video_url && (
-            <div style={{ marginTop: '16px' }}>
-              <Card title="Video">
-                <a
-                  href={song.video_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+            <Card title="Video">
+              <a
+                href={song.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: '#1976d2',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                }}
+              >
+                <ExternalLink size={16} /> Assistir Video
+              </a>
+            </Card>
+          )}
+
+          {/* Estender Audio */}
+          {song.suno_id && (
+            <Card title="Estender Audio">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={labelStyle}>Continuar em (segundos)</label>
+                  <input
+                    type="number"
+                    style={inputStyle}
+                    placeholder="Ex: 120"
+                    value={extendContinueAt}
+                    onChange={(e) => setExtendContinueAt(e.target.value)}
+                    onFocus={(e) => { e.target.style.borderColor = '#1976d2'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#ddd'; }}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Prompt (opcional)</label>
+                  <textarea
+                    style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
+                    placeholder="Descreva o que deve vir a seguir..."
+                    value={extendPrompt}
+                    onChange={(e) => setExtendPrompt(e.target.value)}
+                    onFocus={(e) => { e.target.style.borderColor = '#1976d2'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#ddd'; }}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Tags / Estilo (opcional)</label>
+                  <input
+                    type="text"
+                    style={inputStyle}
+                    placeholder="Ex: rock, energetico"
+                    value={extendTags}
+                    onChange={(e) => setExtendTags(e.target.value)}
+                    onFocus={(e) => { e.target.style.borderColor = '#1976d2'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#ddd'; }}
+                  />
+                </div>
+                <button
+                  onClick={handleExtend}
+                  disabled={extending}
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '8px',
-                    color: '#1976d2', fontSize: '14px', textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 22px',
+                    backgroundColor: extending ? '#90caf9' : '#1976d2',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: extending ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    transition: 'background-color 0.2s',
+                    alignSelf: 'flex-start',
                   }}
                 >
-                  <ExternalLink size={16} /> Open Video
-                </a>
-              </Card>
-            </div>
-          )}
+                  {extending ? <Loader2 size={16} className="spin" /> : <Music size={16} />}
+                  {extending ? 'Estendendo...' : 'Estender'}
+                </button>
 
-          {/* Extend Audio */}
-          {song.suno_id && (
-            <div style={{ marginTop: '16px' }}>
-              <Card title="Extend Audio">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#555', marginBottom: '6px' }}>
-                      Continue At (seconds)
-                    </label>
-                    <input
-                      type="number"
-                      style={inputStyle}
-                      placeholder="e.g. 120"
-                      value={extendContinueAt}
-                      onChange={(e) => setExtendContinueAt(e.target.value)}
-                    />
+                {extendResult && extendResult.length > 0 && (
+                  <div style={{ marginTop: '8px' }}>
+                    <strong style={{ fontSize: '14px', color: '#555', display: 'block', marginBottom: '10px' }}>
+                      Clips estendidos:
+                    </strong>
+                    {extendResult.map((clip, i) => (
+                      <div key={clip.id || i} style={{ marginTop: '8px' }}>
+                        {clip.audio_url ? (
+                          <AudioPlayer src={clip.audio_url} title={clip.title} />
+                        ) : (
+                          <p style={{ fontSize: '13px', color: '#888', margin: 0 }}>
+                            Clip gerado (ID: {clip.suno_id || clip.id}) - audio ainda nao disponivel.
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#555', marginBottom: '6px' }}>
-                      Prompt (optional)
-                    </label>
-                    <textarea
-                      style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
-                      placeholder="Describe what should come next..."
-                      value={extendPrompt}
-                      onChange={(e) => setExtendPrompt(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#555', marginBottom: '6px' }}>
-                      Tags / Style (optional)
-                    </label>
-                    <input
-                      type="text"
-                      style={inputStyle}
-                      placeholder="e.g. rock, energetic"
-                      value={extendTags}
-                      onChange={(e) => setExtendTags(e.target.value)}
-                    />
-                  </div>
-                  <button
-                    onClick={handleExtend}
-                    disabled={extending}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '8px',
-                      padding: '10px 24px', backgroundColor: extending ? '#90caf9' : '#1976d2',
-                      color: '#fff', border: 'none', borderRadius: '6px',
-                      cursor: extending ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 500,
-                    }}
-                  >
-                    {extending ? <Loader2 size={16} className="spin" /> : <Music size={16} />}
-                    {extending ? 'Extending...' : 'Extend Audio'}
-                  </button>
-
-                  {extendResult && extendResult.length > 0 && (
-                    <div style={{ marginTop: '8px' }}>
-                      <strong style={{ fontSize: '13px', color: '#555' }}>Extended Clips:</strong>
-                      {extendResult.map((clip, i) => (
-                        <div key={clip.id || i} style={{ marginTop: '8px' }}>
-                          {clip.audio_url && <AudioPlayer src={clip.audio_url} title={clip.title} />}
-                          {!clip.audio_url && (
-                            <p style={{ fontSize: '13px', color: '#888' }}>
-                              Clip generated (ID: {clip.suno_id || clip.id}) - audio not yet available.
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </div>
+                )}
+              </div>
+            </Card>
           )}
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .spin { animation: spin 1s linear infinite; }
-      `}</style>
     </div>
   );
 }

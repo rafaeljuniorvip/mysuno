@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,50 +17,34 @@ export default function Login() {
       login(res.data.token, res.data.user);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      setError(err.response?.data?.error || 'Falha ao realizar login.');
     }
   };
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh', background: '#f5f5f5',
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: '12px', padding: '48px',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.1)', textAlign: 'center',
-        maxWidth: '400px', width: '100%',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '8px' }}>
-          <Music size={32} color="#1976d2" />
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700, color: '#333' }}>MySuno</h1>
-        </div>
-        <p style={{ color: '#666', marginBottom: '32px', fontSize: '14px' }}>
-          AI Music Generator Manager
-        </p>
-
-        {error && (
-          <div style={{
-            background: '#fce4ec', color: '#c62828', padding: '12px',
-            borderRadius: '8px', marginBottom: '24px', fontSize: '14px',
-          }}>
-            {error}
+    <div className="login-container">
+      <div className="login-card">
+        <div className="login-brand">
+          <div className="login-brand-icon">
+            <Music size={24} />
           </div>
-        )}
+          <h1>MySuno</h1>
+        </div>
+        <p className="login-subtitle">Gerador de Musicas com IA</p>
 
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        {error && <div className="login-error">{error}</div>}
+
+        <div className="login-google-btn">
           <GoogleLogin
             onSuccess={handleSuccess}
-            onError={() => setError('Google login failed')}
+            onError={() => setError('Falha no login com Google.')}
             theme="outline"
             size="large"
             width="300"
           />
         </div>
 
-        <p style={{ color: '#999', marginTop: '32px', fontSize: '12px' }}>
-          Only authorized emails can access this application.
-        </p>
+        <p className="login-footer">Apenas emails autorizados podem acessar.</p>
       </div>
     </div>
   );

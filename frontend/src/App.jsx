@@ -14,7 +14,7 @@ const GOOGLE_CLIENT_ID = '141913349498-n6mfefb0k7p559grf0l6gdkn65dt2bi6.apps.goo
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="loading-spinner" />;
+  if (loading) return <div className="loading-fullscreen"><div className="loading-spinner" /></div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 }
@@ -22,7 +22,13 @@ function ProtectedRoute({ children }) {
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}><div className="loading-spinner" /></div>;
+  if (loading) {
+    return (
+      <div className="loading-fullscreen">
+        <div className="loading-spinner" />
+      </div>
+    );
+  }
 
   return (
     <Routes>

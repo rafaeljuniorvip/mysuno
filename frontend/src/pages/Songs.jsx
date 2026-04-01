@@ -7,11 +7,48 @@ import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import AudioPlayer from '../components/ui/AudioPlayer';
 
+const statusLabels = {
+  complete: 'Completo',
+  streaming: 'Transmitindo',
+  pending: 'Pendente',
+};
+
 const statusColors = {
   complete: { bg: '#e8f5e9', color: '#2e7d32' },
   streaming: { bg: '#e3f2fd', color: '#1565c0' },
   pending: { bg: '#fff3e0', color: '#e65100' },
 };
+
+const actionBtnStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '32px',
+  height: '32px',
+  border: '1px solid #e0e0e0',
+  borderRadius: '6px',
+  background: '#fff',
+  cursor: 'pointer',
+  color: '#666',
+  transition: 'background-color 0.15s, border-color 0.15s',
+};
+
+const pageBtnStyle = (disabled) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '34px',
+  height: '34px',
+  padding: '0 10px',
+  border: '1px solid #e0e0e0',
+  borderRadius: '6px',
+  background: '#fff',
+  cursor: disabled ? 'not-allowed' : 'pointer',
+  color: disabled ? '#ccc' : '#333',
+  fontSize: '13px',
+  fontWeight: 500,
+  transition: 'background-color 0.15s',
+});
 
 export default function Songs() {
   const navigate = useNavigate();
@@ -39,7 +76,7 @@ export default function Songs() {
       setSongs(res.data.data || []);
       setPagination(res.data.pagination || { page, limit: 20, total: 0, pages: 1 });
     } catch (err) {
-      console.error('Failed to fetch songs:', err);
+      console.error('Falha ao buscar musicas:', err);
     } finally {
       setLoading(false);
     }
@@ -53,46 +90,54 @@ export default function Songs() {
     setSyncing(true);
     try {
       const res = await api.post('/songs/sync');
-      alert(`Synced ${res.data.synced} song(s)`);
+      alert(`${res.data.synced} musica(s) sincronizada(s)`);
       fetchSongs(pagination.page);
     } catch (err) {
-      console.error('Sync failed:', err);
+      console.error('Falha na sincronizacao:', err);
+      alert('Falha ao sincronizar.');
     } finally {
       setSyncing(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this song?')) return;
+    if (!window.confirm('Tem certeza que deseja excluir esta musica?')) return;
     try {
       await api.delete(`/songs/${id}`);
       fetchSongs(pagination.page);
     } catch (err) {
-      console.error('Delete failed:', err);
-      alert('Failed to delete song.');
+      console.error('Falha ao excluir:', err);
+      alert('Falha ao excluir musica.');
     }
+  };
+
+  const formatDuration = (val) => {
+    if (!val) return '--';
+    const mins = Math.floor(val / 60);
+    const secs = Math.floor(val % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const columns = [
     {
       key: 'title',
-      label: 'Title',
+      label: 'Titulo',
       render: (val) => (
-        <span style={{ fontWeight: 500, color: '#333' }}>{val || 'Untitled'}</span>
+        <span style={{ fontWeight: 500, color: '#1a1a1a' }}>{val || 'Sem titulo'}</span>
       ),
     },
     {
       key: 'prompt',
       label: 'Prompt',
       render: (val) => (
-        <span style={{ color: '#666', fontSize: '13px' }} title={val}>
+        <span style={{ color: '#777', fontSize: '13px' }} title={val}>
           {val ? (val.length > 60 ? val.substring(0, 60) + '...' : val) : '--'}
         </span>
       ),
     },
     {
       key: 'tags',
-      label: 'Style / Tags',
+      label: 'Estilo',
       render: (val) => val || '--',
     },
     {
@@ -103,31 +148,26 @@ export default function Songs() {
         return (
           <span style={{
             display: 'inline-block',
-            padding: '4px 10px',
-            borderRadius: '12px',
+            padding: '4px 12px',
+            borderRadius: '20px',
             fontSize: '12px',
             fontWeight: 600,
             backgroundColor: s.bg,
             color: s.color,
           }}>
-            {val || 'unknown'}
+            {statusLabels[val] || val || 'Desconhecido'}
           </span>
         );
       },
     },
     {
       key: 'duration',
-      label: 'Duration',
-      render: (val) => {
-        if (!val) return '--';
-        const mins = Math.floor(val / 60);
-        const secs = Math.floor(val % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-      },
+      label: 'Duracao',
+      render: (val) => formatDuration(val),
     },
     {
       key: 'created_at',
-      label: 'Created',
+      label: 'Criado em',
       render: (val) => val ? new Date(val).toLocaleDateString('pt-BR', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
@@ -135,13 +175,13 @@ export default function Songs() {
     },
     {
       key: 'actions',
-      label: 'Actions',
+      label: 'Acoes',
       render: (_, row) => (
         <div style={{ display: 'flex', gap: '6px' }}>
           {row.audio_url && (
             <button
               onClick={() => setPlayerSong(row)}
-              title="Play"
+              title="Reproduzir"
               style={actionBtnStyle}
             >
               <Play size={14} />
@@ -149,14 +189,14 @@ export default function Songs() {
           )}
           <button
             onClick={() => navigate(`/songs/${row.id}`)}
-            title="View"
+            title="Ver detalhes"
             style={actionBtnStyle}
           >
             <Eye size={14} />
           </button>
           <button
             onClick={() => handleDelete(row.id)}
-            title="Delete"
+            title="Excluir"
             style={{ ...actionBtnStyle, color: '#d32f2f' }}
           >
             <Trash2 size={14} />
@@ -166,72 +206,98 @@ export default function Songs() {
     },
   ];
 
+  const filterBtnStyle = (active) => ({
+    padding: '8px 16px',
+    border: '1px solid',
+    borderColor: active ? '#1976d2' : '#e0e0e0',
+    borderRadius: '6px',
+    backgroundColor: active ? '#e3f2fd' : '#fff',
+    color: active ? '#1976d2' : '#666',
+    fontSize: '13px',
+    fontWeight: active ? 600 : 400,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  });
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#333' }}>Songs</h1>
+        <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 700, color: '#1a1a1a' }}>Musicas</h1>
         <button
           onClick={handleSync}
           disabled={syncing}
           style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '8px 16px', backgroundColor: '#1976d2', color: '#fff',
-            border: 'none', borderRadius: '6px', cursor: syncing ? 'not-allowed' : 'pointer',
-            fontSize: '14px', fontWeight: 500, opacity: syncing ? 0.7 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 20px',
+            backgroundColor: '#1976d2',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: syncing ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+            fontWeight: 600,
+            opacity: syncing ? 0.7 : 1,
           }}
         >
-          <RefreshCw size={16} />
-          {syncing ? 'Syncing...' : 'Sync Songs'}
+          <RefreshCw size={16} className={syncing ? 'spin' : ''} />
+          {syncing ? 'Sincronizando...' : 'Sincronizar'}
         </button>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: '1 1 320px', maxWidth: '440px' }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
           <input
             type="text"
-            placeholder="Search by title, prompt or tags..."
+            placeholder="Buscar por titulo, prompt ou estilo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
-              width: '100%', padding: '10px 14px 10px 36px',
-              border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px',
-              outline: 'none', boxSizing: 'border-box',
+              width: '100%',
+              padding: '10px 14px 10px 38px',
+              border: '1px solid #e0e0e0',
+              borderRadius: '8px',
+              fontSize: '14px',
+              outline: 'none',
+              boxSizing: 'border-box',
+              backgroundColor: '#fafafa',
+              transition: 'border-color 0.2s',
             }}
+            onFocus={(e) => { e.target.style.borderColor = '#1976d2'; }}
+            onBlur={(e) => { e.target.style.borderColor = '#e0e0e0'; }}
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          style={{
-            padding: '10px 14px', border: '1px solid #ddd',
-            borderRadius: '6px', fontSize: '14px', outline: 'none',
-            backgroundColor: '#fff', color: '#333', cursor: 'pointer',
-          }}
-        >
-          <option value="">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="streaming">Streaming</option>
-          <option value="complete">Complete</option>
-        </select>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button style={filterBtnStyle(statusFilter === '')} onClick={() => setStatusFilter('')}>Todos</button>
+          <button style={filterBtnStyle(statusFilter === 'pending')} onClick={() => setStatusFilter('pending')}>Pendente</button>
+          <button style={filterBtnStyle(statusFilter === 'streaming')} onClick={() => setStatusFilter('streaming')}>Transmitindo</button>
+          <button style={filterBtnStyle(statusFilter === 'complete')} onClick={() => setStatusFilter('complete')}>Completo</button>
+        </div>
       </div>
 
       <Card>
-        <Table columns={columns} data={songs} loading={loading} />
+        <Table
+          columns={columns}
+          data={songs}
+          loading={loading}
+          emptyMessage="Nenhuma musica encontrada."
+        />
 
-        {/* Pagination */}
+        {/* Paginacao */}
         {pagination.pages > 1 && (
           <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #eee',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '16px',
+            paddingTop: '16px',
+            borderTop: '1px solid #f0f0f0',
           }}>
             <span style={{ fontSize: '13px', color: '#888' }}>
-              Showing {((pagination.page - 1) * pagination.limit) + 1}
-              {' - '}
-              {Math.min(pagination.page * pagination.limit, pagination.total)}
-              {' of '}
-              {pagination.total} songs
+              Pagina {pagination.page} de {pagination.pages}
             </span>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button
@@ -239,51 +305,25 @@ export default function Songs() {
                 disabled={pagination.page <= 1}
                 style={pageBtnStyle(pagination.page <= 1)}
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={16} /> Anterior
               </button>
-              {Array.from({ length: Math.min(pagination.pages, 7) }, (_, i) => {
-                let pageNum;
-                if (pagination.pages <= 7) {
-                  pageNum = i + 1;
-                } else if (pagination.page <= 4) {
-                  pageNum = i + 1;
-                } else if (pagination.page >= pagination.pages - 3) {
-                  pageNum = pagination.pages - 6 + i;
-                } else {
-                  pageNum = pagination.page - 3 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => fetchSongs(pageNum)}
-                    style={{
-                      ...pageBtnStyle(false),
-                      backgroundColor: pageNum === pagination.page ? '#1976d2' : '#fff',
-                      color: pageNum === pagination.page ? '#fff' : '#333',
-                      fontWeight: pageNum === pagination.page ? 600 : 400,
-                    }}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
               <button
                 onClick={() => fetchSongs(pagination.page + 1)}
                 disabled={pagination.page >= pagination.pages}
                 style={pageBtnStyle(pagination.page >= pagination.pages)}
               >
-                <ChevronRight size={16} />
+                Proxima <ChevronRight size={16} />
               </button>
             </div>
           </div>
         )}
       </Card>
 
-      {/* Audio Player Modal */}
+      {/* Modal de audio */}
       <Modal
         isOpen={!!playerSong}
         onClose={() => setPlayerSong(null)}
-        title={playerSong?.title || 'Play Song'}
+        title={playerSong?.title || 'Reproduzir Musica'}
       >
         {playerSong && (
           <AudioPlayer src={playerSong.audio_url} title={playerSong.title} />
@@ -292,17 +332,3 @@ export default function Songs() {
     </div>
   );
 }
-
-const actionBtnStyle = {
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  width: '30px', height: '30px', border: '1px solid #ddd',
-  borderRadius: '4px', background: '#fff', cursor: 'pointer', color: '#555',
-};
-
-const pageBtnStyle = (disabled) => ({
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  minWidth: '32px', height: '32px', padding: '0 8px',
-  border: '1px solid #ddd', borderRadius: '4px',
-  background: '#fff', cursor: disabled ? 'not-allowed' : 'pointer',
-  color: disabled ? '#ccc' : '#333', fontSize: '13px',
-});

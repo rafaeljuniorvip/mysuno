@@ -1,4 +1,4 @@
-export default function Table({ columns = [], data = [], loading = false, emptyMessage = 'No data found.' }) {
+export default function Table({ columns = [], data = [], loading = false, emptyMessage = 'Nenhum registro encontrado.' }) {
   if (loading) {
     return (
       <div className="spinner-wrapper">

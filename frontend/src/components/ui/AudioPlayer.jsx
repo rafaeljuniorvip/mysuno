@@ -6,7 +6,7 @@ export default function AudioPlayer({ src, title }) {
       {title && <div className="audio-player-title">{title}</div>}
       <audio controls preload="metadata">
         <source src={src} />
-        Your browser does not support the audio element.
+        Seu navegador nao suporta o elemento de audio.
       </audio>
     </div>
   );

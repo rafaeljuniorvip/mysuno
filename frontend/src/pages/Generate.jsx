@@ -1,30 +1,50 @@
 import React, { useState } from 'react';
-import { Wand2, Sparkles, FileText, Copy, Check, Loader2, Music } from 'lucide-react';
+import { Sparkles, Music2, Wand2, Copy, ArrowRight, Loader2, Music } from 'lucide-react';
 import api from '../services/api';
 import Card from '../components/ui/Card';
 import AudioPlayer from '../components/ui/AudioPlayer';
 
-const btnStyle = (active) => ({
-  padding: '10px 24px',
-  border: 'none',
-  borderBottom: active ? '3px solid #1976d2' : '3px solid transparent',
-  background: 'none',
-  cursor: 'pointer',
-  fontSize: '14px',
-  fontWeight: active ? 600 : 400,
-  color: active ? '#1976d2' : '#666',
-  transition: 'all 0.2s',
-});
+const statusLabels = {
+  complete: 'Completo',
+  streaming: 'Transmitindo',
+  pending: 'Pendente',
+};
+
+const statusColors = {
+  complete: { bg: '#e8f5e9', color: '#2e7d32' },
+  streaming: { bg: '#e3f2fd', color: '#1565c0' },
+  pending: { bg: '#fff3e0', color: '#e65100' },
+};
+
+const StatusBadge = ({ status }) => {
+  const style = statusColors[status] || { bg: '#f5f5f5', color: '#666' };
+  return (
+    <span style={{
+      display: 'inline-block',
+      padding: '4px 12px',
+      borderRadius: '20px',
+      fontSize: '12px',
+      fontWeight: 600,
+      backgroundColor: style.bg,
+      color: style.color,
+    }}>
+      {statusLabels[status] || status}
+    </span>
+  );
+};
 
 const inputStyle = {
   width: '100%',
   padding: '10px 14px',
   border: '1px solid #ddd',
-  borderRadius: '6px',
+  borderRadius: '8px',
   fontSize: '14px',
+  color: '#333',
+  backgroundColor: '#fafafa',
   outline: 'none',
-  fontFamily: 'inherit',
+  transition: 'border-color 0.2s',
   boxSizing: 'border-box',
+  fontFamily: 'inherit',
 };
 
 const textareaStyle = {
@@ -33,52 +53,71 @@ const textareaStyle = {
   resize: 'vertical',
 };
 
-const primaryBtn = (disabled) => ({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '8px',
-  padding: '10px 24px',
-  backgroundColor: disabled ? '#90caf9' : '#1976d2',
-  color: '#fff',
-  border: 'none',
-  borderRadius: '6px',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  fontSize: '14px',
-  fontWeight: 500,
-});
-
 const labelStyle = {
   display: 'block',
   fontSize: '13px',
-  fontWeight: 500,
+  fontWeight: 600,
   color: '#555',
   marginBottom: '6px',
 };
 
-export default function Generate() {
-  const [mode, setMode] = useState('simple');
-  const [generating, setGenerating] = useState(false);
-  const [results, setResults] = useState([]);
+const buttonPrimary = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '10px 22px',
+  backgroundColor: '#1976d2',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: '14px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  transition: 'background-color 0.2s',
+};
 
-  // Simple mode
+const buttonSecondary = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '8px 16px',
+  backgroundColor: '#f0f0f0',
+  color: '#555',
+  border: '1px solid #ddd',
+  borderRadius: '8px',
+  fontSize: '13px',
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'background-color 0.2s',
+};
+
+export default function Generate() {
+  const [tab, setTab] = useState('simple');
+
+  // Modo simples
   const [simplePrompt, setSimplePrompt] = useState('');
   const [simpleInstrumental, setSimpleInstrumental] = useState(false);
 
-  // Custom mode
+  // Modo personalizado
   const [customTitle, setCustomTitle] = useState('');
   const [customLyrics, setCustomLyrics] = useState('');
   const [customTags, setCustomTags] = useState('');
   const [customInstrumental, setCustomInstrumental] = useState(false);
 
-  // Lyrics generator
+  // Gerador de letra
   const [lyricsPrompt, setLyricsPrompt] = useState('');
   const [generatedLyrics, setGeneratedLyrics] = useState(null);
   const [generatingLyrics, setGeneratingLyrics] = useState(false);
-  const [copied, setCopied] = useState(false);
+
+  // Resultados
+  const [results, setResults] = useState([]);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSimpleGenerate = async () => {
     if (!simplePrompt.trim()) return;
     setGenerating(true);
+    setError('');
     setResults([]);
     try {
       const res = await api.post('/suno/generate', {
@@ -88,16 +127,16 @@ export default function Generate() {
       });
       setResults(Array.isArray(res.data) ? res.data : [res.data]);
     } catch (err) {
-      console.error('Generation failed:', err);
-      alert('Generation failed. Check console for details.');
+      setError(err.response?.data?.error || 'Erro ao gerar musica. Tente novamente.');
     } finally {
       setGenerating(false);
     }
   };
 
   const handleCustomGenerate = async () => {
-    if (!customLyrics.trim()) return;
+    if (!customLyrics.trim() && !customInstrumental) return;
     setGenerating(true);
+    setError('');
     setResults([]);
     try {
       const res = await api.post('/suno/custom_generate', {
@@ -109,8 +148,7 @@ export default function Generate() {
       });
       setResults(Array.isArray(res.data) ? res.data : [res.data]);
     } catch (err) {
-      console.error('Custom generation failed:', err);
-      alert('Custom generation failed. Check console for details.');
+      setError(err.response?.data?.error || 'Erro ao gerar musica. Tente novamente.');
     } finally {
       setGenerating(false);
     }
@@ -121,13 +159,10 @@ export default function Generate() {
     setGeneratingLyrics(true);
     setGeneratedLyrics(null);
     try {
-      const res = await api.post('/suno/generate_lyrics', {
-        prompt: lyricsPrompt,
-      });
+      const res = await api.post('/suno/generate_lyrics', { prompt: lyricsPrompt });
       setGeneratedLyrics(res.data);
     } catch (err) {
-      console.error('Lyrics generation failed:', err);
-      alert('Lyrics generation failed.');
+      setError(err.response?.data?.error || 'Erro ao gerar letra.');
     } finally {
       setGeneratingLyrics(false);
     }
@@ -136,8 +171,6 @@ export default function Generate() {
   const handleCopyLyrics = () => {
     if (generatedLyrics?.text) {
       navigator.clipboard.writeText(generatedLyrics.text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -145,247 +178,231 @@ export default function Generate() {
     if (generatedLyrics) {
       setCustomTitle(generatedLyrics.title || '');
       setCustomLyrics(generatedLyrics.text || '');
-      setMode('custom');
+      setTab('custom');
     }
   };
 
+  const tabStyle = (active) => ({
+    padding: '10px 24px',
+    fontSize: '14px',
+    fontWeight: 600,
+    border: 'none',
+    borderBottom: active ? '3px solid #1976d2' : '3px solid transparent',
+    backgroundColor: 'transparent',
+    color: active ? '#1976d2' : '#888',
+    cursor: 'pointer',
+    transition: 'color 0.2s, border-color 0.2s',
+  });
+
   return (
     <div>
-      <h1 style={{ margin: '0 0 24px 0', fontSize: '24px', fontWeight: 700, color: '#333' }}>
-        Generate Music
+      <h1 style={{ margin: '0 0 28px 0', fontSize: '26px', fontWeight: 700, color: '#1a1a1a' }}>
+        Gerar Musica
       </h1>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        {/* Left: Generation Form */}
-        <div>
-          <Card>
-            <div style={{ borderBottom: '1px solid #e0e0e0', marginBottom: '20px', display: 'flex' }}>
-              <button style={btnStyle(mode === 'simple')} onClick={() => setMode('simple')}>
-                <Wand2 size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                Simple
-              </button>
-              <button style={btnStyle(mode === 'custom')} onClick={() => setMode('custom')}>
-                <Sparkles size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                Custom
-              </button>
+      <Card>
+        <div style={{ borderBottom: '1px solid #eee', marginBottom: '24px', display: 'flex' }}>
+          <button style={tabStyle(tab === 'simple')} onClick={() => setTab('simple')}>
+            <Music2 size={16} style={{ marginRight: '6px', verticalAlign: '-3px' }} />
+            Simples
+          </button>
+          <button style={tabStyle(tab === 'custom')} onClick={() => setTab('custom')}>
+            <Wand2 size={16} style={{ marginRight: '6px', verticalAlign: '-3px' }} />
+            Personalizado
+          </button>
+        </div>
+
+        {tab === 'simple' && (
+          <div style={{ maxWidth: '600px' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Descreva a musica que voce quer</label>
+              <textarea
+                style={textareaStyle}
+                placeholder="Ex: Uma musica pop alegre sobre o verao..."
+                value={simplePrompt}
+                onChange={(e) => setSimplePrompt(e.target.value)}
+                onFocus={(e) => { e.target.style.borderColor = '#1976d2'; }}
+                onBlur={(e) => { e.target.style.borderColor = '#ddd'; }}
+              />
             </div>
-
-            {mode === 'simple' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div>
-                  <label style={labelStyle}>Prompt</label>
-                  <textarea
-                    style={textareaStyle}
-                    placeholder="Describe the song you want to create..."
-                    value={simplePrompt}
-                    onChange={(e) => setSimplePrompt(e.target.value)}
-                  />
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#555', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={simpleInstrumental}
-                    onChange={(e) => setSimpleInstrumental(e.target.checked)}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  Instrumental (no vocals)
-                </label>
-                <button
-                  onClick={handleSimpleGenerate}
-                  disabled={generating || !simplePrompt.trim()}
-                  style={primaryBtn(generating || !simplePrompt.trim())}
-                >
-                  {generating ? <Loader2 size={16} className="spin" /> : <Wand2 size={16} />}
-                  {generating ? 'Generating...' : 'Generate'}
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div>
-                  <label style={labelStyle}>Title</label>
-                  <input
-                    style={inputStyle}
-                    type="text"
-                    placeholder="Song title"
-                    value={customTitle}
-                    onChange={(e) => setCustomTitle(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>Lyrics / Prompt</label>
-                  <textarea
-                    style={{ ...textareaStyle, minHeight: '140px' }}
-                    placeholder="Write your lyrics here..."
-                    value={customLyrics}
-                    onChange={(e) => setCustomLyrics(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>Style / Tags</label>
-                  <input
-                    style={inputStyle}
-                    type="text"
-                    placeholder="e.g. pop, rock, acoustic, electronic"
-                    value={customTags}
-                    onChange={(e) => setCustomTags(e.target.value)}
-                  />
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#555', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={customInstrumental}
-                    onChange={(e) => setCustomInstrumental(e.target.checked)}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  Instrumental (no vocals)
-                </label>
-                <button
-                  onClick={handleCustomGenerate}
-                  disabled={generating || !customLyrics.trim()}
-                  style={primaryBtn(generating || !customLyrics.trim())}
-                >
-                  {generating ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
-                  {generating ? 'Generating...' : 'Generate Custom'}
-                </button>
-              </div>
-            )}
-          </Card>
-
-          {/* Lyrics Generator */}
-          <div style={{ marginTop: '24px' }}>
-            <Card title="Generate Lyrics">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={labelStyle}>Describe the lyrics you want</label>
-                  <input
-                    style={inputStyle}
-                    type="text"
-                    placeholder="e.g. A love song about the ocean at sunset"
-                    value={lyricsPrompt}
-                    onChange={(e) => setLyricsPrompt(e.target.value)}
-                  />
-                </div>
-                <button
-                  onClick={handleGenerateLyrics}
-                  disabled={generatingLyrics || !lyricsPrompt.trim()}
-                  style={{
-                    ...primaryBtn(generatingLyrics || !lyricsPrompt.trim()),
-                    backgroundColor: (generatingLyrics || !lyricsPrompt.trim()) ? '#a5d6a7' : '#2e7d32',
-                  }}
-                >
-                  {generatingLyrics ? <Loader2 size={16} className="spin" /> : <FileText size={16} />}
-                  {generatingLyrics ? 'Generating...' : 'Generate Lyrics'}
-                </button>
-
-                {generatedLyrics && (
-                  <div style={{ marginTop: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <strong style={{ fontSize: '14px', color: '#333' }}>
-                        {generatedLyrics.title || 'Generated Lyrics'}
-                      </strong>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={handleCopyLyrics}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '4px',
-                            padding: '4px 10px', fontSize: '12px', border: '1px solid #ddd',
-                            borderRadius: '4px', background: '#fff', cursor: 'pointer', color: '#555',
-                          }}
-                        >
-                          {copied ? <Check size={12} /> : <Copy size={12} />}
-                          {copied ? 'Copied' : 'Copy'}
-                        </button>
-                        <button
-                          onClick={handleUseLyrics}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '4px',
-                            padding: '4px 10px', fontSize: '12px', border: '1px solid #1976d2',
-                            borderRadius: '4px', background: '#e3f2fd', cursor: 'pointer', color: '#1976d2',
-                          }}
-                        >
-                          Use in Custom
-                        </button>
-                      </div>
-                    </div>
-                    <textarea
-                      readOnly
-                      value={generatedLyrics.text || ''}
-                      style={{ ...textareaStyle, minHeight: '160px', backgroundColor: '#fafafa' }}
-                    />
-                  </div>
-                )}
-              </div>
-            </Card>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#555' }}>
+                <input
+                  type="checkbox"
+                  checked={simpleInstrumental}
+                  onChange={(e) => setSimpleInstrumental(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#1976d2' }}
+                />
+                Instrumental (sem voz)
+              </label>
+            </div>
+            <button
+              style={{ ...buttonPrimary, opacity: generating || !simplePrompt.trim() ? 0.6 : 1, cursor: generating || !simplePrompt.trim() ? 'not-allowed' : 'pointer' }}
+              onClick={handleSimpleGenerate}
+              disabled={generating || !simplePrompt.trim()}
+            >
+              {generating ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
+              {generating ? 'Gerando...' : 'Gerar Musica'}
+            </button>
           </div>
-        </div>
+        )}
 
-        {/* Right: Results */}
-        <div>
-          <Card title="Generation Results">
-            {generating && (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
-                <Loader2 size={32} className="spin" style={{ marginBottom: '12px' }} />
-                <p>Generating your music... This may take a moment.</p>
-              </div>
-            )}
+        {tab === 'custom' && (
+          <div style={{ maxWidth: '600px' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Titulo</label>
+              <input
+                style={inputStyle}
+                placeholder="Titulo da musica"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                onFocus={(e) => { e.target.style.borderColor = '#1976d2'; }}
+                onBlur={(e) => { e.target.style.borderColor = '#ddd'; }}
+              />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Letra</label>
+              <textarea
+                style={{ ...textareaStyle, minHeight: '150px' }}
+                placeholder="Digite ou cole a letra da musica aqui..."
+                value={customLyrics}
+                onChange={(e) => setCustomLyrics(e.target.value)}
+                onFocus={(e) => { e.target.style.borderColor = '#1976d2'; }}
+                onBlur={(e) => { e.target.style.borderColor = '#ddd'; }}
+              />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Estilo / Tags</label>
+              <input
+                style={inputStyle}
+                placeholder="Ex: pop, rock, acustico, alegre..."
+                value={customTags}
+                onChange={(e) => setCustomTags(e.target.value)}
+                onFocus={(e) => { e.target.style.borderColor = '#1976d2'; }}
+                onBlur={(e) => { e.target.style.borderColor = '#ddd'; }}
+              />
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#555' }}>
+                <input
+                  type="checkbox"
+                  checked={customInstrumental}
+                  onChange={(e) => setCustomInstrumental(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#1976d2' }}
+                />
+                Instrumental (sem voz)
+              </label>
+            </div>
+            <button
+              style={{ ...buttonPrimary, opacity: generating ? 0.6 : 1, cursor: generating ? 'not-allowed' : 'pointer' }}
+              onClick={handleCustomGenerate}
+              disabled={generating}
+            >
+              {generating ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
+              {generating ? 'Gerando...' : 'Gerar Musica'}
+            </button>
+          </div>
+        )}
+      </Card>
 
-            {!generating && results.length === 0 && (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>
-                <Music size={48} style={{ marginBottom: '12px', opacity: 0.3 }} />
-                <p>Generated songs will appear here.</p>
-              </div>
-            )}
+      {/* Gerador de Letra */}
+      <div style={{ marginTop: '24px' }}>
+        <Card title="Gerar Letra">
+          <div style={{ maxWidth: '600px' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Descreva o tema da letra</label>
+              <input
+                style={inputStyle}
+                placeholder="Ex: Uma balada romantica sobre saudade..."
+                value={lyricsPrompt}
+                onChange={(e) => setLyricsPrompt(e.target.value)}
+                onFocus={(e) => { e.target.style.borderColor = '#1976d2'; }}
+                onBlur={(e) => { e.target.style.borderColor = '#ddd'; }}
+              />
+            </div>
+            <button
+              style={{ ...buttonPrimary, backgroundColor: (generatingLyrics || !lyricsPrompt.trim()) ? '#a5d6a7' : '#2e7d32', opacity: generatingLyrics || !lyricsPrompt.trim() ? 0.7 : 1, cursor: generatingLyrics || !lyricsPrompt.trim() ? 'not-allowed' : 'pointer' }}
+              onClick={handleGenerateLyrics}
+              disabled={generatingLyrics || !lyricsPrompt.trim()}
+            >
+              {generatingLyrics ? <Loader2 size={16} className="spin" /> : <Wand2 size={16} />}
+              {generatingLyrics ? 'Gerando...' : 'Gerar Letra'}
+            </button>
 
-            {!generating && results.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {results.map((clip, i) => (
-                  <div
-                    key={clip.id || clip.suno_id || i}
-                    style={{
-                      padding: '16px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      backgroundColor: '#fafafa',
-                    }}
+            {generatedLyrics && (
+              <div style={{ marginTop: '20px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '10px', border: '1px solid #e8e8e8' }}>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
+                  {generatedLyrics.title}
+                </div>
+                <pre style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#444', lineHeight: 1.7, margin: '0 0 16px 0', fontFamily: 'inherit' }}>
+                  {generatedLyrics.text}
+                </pre>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button style={buttonSecondary} onClick={handleCopyLyrics}>
+                    <Copy size={14} /> Copiar
+                  </button>
+                  <button
+                    style={{ ...buttonSecondary, backgroundColor: '#e3f2fd', color: '#1976d2', borderColor: '#bbdefb' }}
+                    onClick={handleUseLyrics}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <strong style={{ fontSize: '15px', color: '#333' }}>
-                        {clip.title || 'Untitled'}
-                      </strong>
-                      <span style={{
-                        fontSize: '11px',
-                        padding: '3px 8px',
-                        borderRadius: '10px',
-                        backgroundColor: clip.status === 'complete' ? '#e8f5e9' : '#fff3e0',
-                        color: clip.status === 'complete' ? '#2e7d32' : '#e65100',
-                        fontWeight: 600,
-                      }}>
-                        {clip.status || 'pending'}
-                      </span>
-                    </div>
-                    {clip.suno_id && (
-                      <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px', fontFamily: 'monospace' }}>
-                        ID: {clip.suno_id}
-                      </div>
-                    )}
-                    {clip.audio_url && (
-                      <AudioPlayer src={clip.audio_url} title="" />
-                    )}
-                  </div>
-                ))}
+                    <ArrowRight size={14} /> Usar no modo personalizado
+                  </button>
+                </div>
               </div>
             )}
-          </Card>
-        </div>
+          </div>
+        </Card>
       </div>
 
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .spin { animation: spin 1s linear infinite; }
-      `}</style>
+      {/* Erro */}
+      {error && (
+        <div style={{ marginTop: '20px', padding: '14px 18px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '14px' }}>
+          {error}
+        </div>
+      )}
+
+      {/* Carregando */}
+      {generating && (
+        <div style={{ marginTop: '24px', textAlign: 'center', padding: '40px 20px' }}>
+          <Loader2 size={36} color="#1976d2" className="spin" />
+          <p style={{ color: '#888', marginTop: '12px', fontSize: '14px' }}>Gerando sua musica... Isso pode levar alguns minutos.</p>
+        </div>
+      )}
+
+      {/* Resultados */}
+      {results.length > 0 && (
+        <div style={{ marginTop: '24px' }}>
+          <Card title="Resultados">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {results.map((clip, idx) => (
+                <div key={clip.id || idx} style={{
+                  padding: '20px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '10px',
+                  border: '1px solid #e8e8e8',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a' }}>
+                        {clip.title || 'Sem titulo'}
+                      </div>
+                      {clip.suno_id && (
+                        <div style={{ fontSize: '12px', color: '#999', marginTop: '4px', fontFamily: 'monospace' }}>
+                          ID: {clip.suno_id}
+                        </div>
+                      )}
+                    </div>
+                    {clip.status && <StatusBadge status={clip.status} />}
+                  </div>
+                  {clip.audio_url && (
+                    <AudioPlayer src={clip.audio_url} title={clip.title} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
