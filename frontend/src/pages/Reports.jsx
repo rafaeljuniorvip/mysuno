@@ -233,7 +233,7 @@ export default function Reports() {
   }
 
   return (
-    <div style={{ maxWidth: '1200px' }}>
+    <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
         <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 700, color: '#111827' }}>Relatorios</h1>
         <button onClick={handleExport} style={{

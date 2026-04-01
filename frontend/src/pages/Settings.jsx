@@ -207,7 +207,7 @@ export default function Settings() {
   }
 
   return (
-    <div style={{ maxWidth: '900px' }}>
+    <div>
       <h1 style={{ margin: '0 0 32px', fontSize: '26px', fontWeight: 700, color: '#111827' }}>Configuracoes</h1>
 
       {/* ========== CONTA ========== */}

@@ -176,7 +176,7 @@ const LoadingPlaceholder = () => (
   <div style={{ marginTop: '24px', padding: '40px 20px', textAlign: 'center' }}>
     <div style={{
       width: '100%',
-      maxWidth: '500px',
+      maxWidth: '600px',
       margin: '0 auto 20px',
       borderRadius: '10px',
       overflow: 'hidden',
@@ -410,7 +410,7 @@ export default function Generate() {
         </div>
 
         {tab === 'simple' && (
-          <div style={{ maxWidth: '600px' }}>
+          <div>
             <div style={{ marginBottom: '16px' }}>
               <label style={labelStyle}>Descreva a musica que voce quer</label>
               <textarea
@@ -442,7 +442,7 @@ export default function Generate() {
         )}
 
         {tab === 'custom' && (
-          <div style={{ maxWidth: '600px' }}>
+          <div>
             <div style={{ marginBottom: '16px' }}>
               <label style={labelStyle}>Titulo</label>
               <input
@@ -547,7 +547,7 @@ export default function Generate() {
       {/* Gerador de Letra */}
       <div style={{ marginTop: '20px' }}>
         <Card title="Gerar Letra com IA">
-          <div style={{ maxWidth: '600px' }}>
+          <div>
             <div style={{ marginBottom: '16px' }}>
               <label style={labelStyle}>Descreva o tema da letra</label>
               <input

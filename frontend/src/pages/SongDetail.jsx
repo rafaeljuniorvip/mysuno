@@ -246,7 +246,7 @@ export default function SongDetail() {
   const isPending = song.status === 'pending';
 
   return (
-    <div style={{ maxWidth: '1200px' }}>
+    <div>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
