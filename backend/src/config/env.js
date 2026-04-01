@@ -8,6 +8,7 @@ module.exports = {
   CLERK_JS_VERSION: process.env.CLERK_JS_VERSION || '5.117.0',
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '141913349498-n6mfefb0k7p559grf0l6gdkn65dt2bi6.apps.googleusercontent.com',
   JWT_SECRET: process.env.JWT_SECRET || 'mysuno-dev-secret-change-in-production',
+  SUNO_API_KEY: process.env.SUNO_API_KEY,
   CLERK_BASE_URL: 'https://auth.suno.com',
   SUNO_API_BASE_URL: 'https://studio-api.prod.suno.com',
 };
