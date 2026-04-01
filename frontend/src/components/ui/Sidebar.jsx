@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Music, ListMusic, BarChart3, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Music, ListMusic, BarChart3, Settings, LogOut, BookOpen } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const navItems = [
@@ -7,6 +7,7 @@ const navItems = [
   { to: '/generate', icon: Music, label: 'Gerar Musica' },
   { to: '/songs', icon: ListMusic, label: 'Musicas' },
   { to: '/reports', icon: BarChart3, label: 'Relatorios' },
+  { to: '/api-docs', icon: BookOpen, label: 'API' },
   { to: '/settings', icon: Settings, label: 'Configuracoes' },
 ];
 
