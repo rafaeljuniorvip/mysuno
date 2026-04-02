@@ -176,7 +176,7 @@ export default function Lyrics() {
 
   const fetchModels = useCallback(async () => {
     try {
-      const res = await api.get('/ai/models?limit=200');
+      const res = await api.get('/ai/models?limit=1000');
       setModels(res.data?.data || []);
     } catch (err) {
       console.error('Erro ao carregar modelos:', err);
