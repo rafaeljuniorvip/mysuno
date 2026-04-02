@@ -156,18 +156,16 @@ export default function Reports() {
 
   // Calcular dados derivados
   const successRate = useMemo(() => {
-    if (!typeData.length) return null;
-    const total = typeData.reduce((acc, t) => acc + (t.total || 0), 0);
-    // Estimar completas baseado nos dados disponiveis
-    const completed = summary?.total_songs || 0;
-    const generations = summary?.total_generations || 0;
-    if (generations === 0) return null;
-    return Math.round((completed / generations) * 100);
-  }, [typeData, summary]);
+    if (!summary || summary.total_generations === 0) return null;
+    return summary.success_rate ?? Math.round((summary.completed_generations / summary.total_generations) * 100);
+  }, [summary]);
 
   const averageDuration = useMemo(() => {
-    // Placeholder - idealmente viria do backend
-    return summary?.avg_duration ? `${Math.floor(summary.avg_duration / 60)}:${Math.floor(summary.avg_duration % 60).toString().padStart(2, '0')}` : '--';
+    const avg = parseFloat(summary?.avg_duration);
+    if (!avg || avg === 0) return '--';
+    const mins = Math.floor(avg / 60);
+    const secs = Math.floor(avg % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   }, [summary]);
 
   const topStyles = useMemo(() => {
@@ -266,7 +264,7 @@ export default function Reports() {
             label="Taxa de Sucesso"
             value={`${successRate}%`}
             color={successRate >= 80 ? '#10b981' : '#f59e0b'}
-            subtitle={`${summary?.total_songs || 0} de ${summary?.total_generations || 0}`}
+            subtitle={`${summary?.completed_generations || 0} de ${summary?.total_generations || 0}`}
           />
         )}
       </div>
