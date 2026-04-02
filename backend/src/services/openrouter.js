@@ -94,7 +94,18 @@ async function generateLyricsAI({ model, prompt, imageBase64, context, systemPro
   }
 
   const messages = [{ role: 'user', content: userContent.length === 1 ? textPrompt : userContent }];
-  const usedModel = model || 'anthropic/claude-sonnet-4';
+
+  // If image is present, use image model from user preferences (needs vision support)
+  let usedModel = model || 'anthropic/claude-sonnet-4';
+  if (imageBase64 && userId) {
+    const prefs = await pool.query('SELECT default_image_model FROM user_preferences WHERE user_id = $1', [userId]);
+    if (prefs.rows.length > 0 && prefs.rows[0].default_image_model) {
+      usedModel = prefs.rows[0].default_image_model;
+    } else {
+      usedModel = 'openai/gpt-4o'; // fallback vision model
+    }
+  }
+
   const usedSystem = systemPrompt || defaultSystem;
   const count = Math.min(Math.max(parseInt(versions) || 1, 1), 5);
 

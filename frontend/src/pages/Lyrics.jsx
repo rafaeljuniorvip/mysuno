@@ -221,7 +221,6 @@ export default function Lyrics() {
 
   // --- Helpers ---
   const selectedModelObj = models.find(m => m.id === selectedModel);
-  const supportsImage = selectedModelObj?.input_modalities?.includes('image');
 
   const filteredModels = models.filter(m => {
     if (!modelSearch) return true;
@@ -290,7 +289,7 @@ export default function Lyrics() {
         versions: versions,
       };
       if (context.trim()) body.context = context.trim();
-      if (imageBase64 && supportsImage) body.imageBase64 = imageBase64;
+      if (imageBase64) body.imageBase64 = imageBase64;
 
       const res = await api.post('/ai/generate-lyrics', body);
       setResult(res.data);
@@ -779,8 +778,8 @@ export default function Lyrics() {
                 />
               </div>
 
-              {/* Image upload - only if model supports it */}
-              {supportsImage && (
+              {/* Image upload */}
+              {(
                 <div style={{ flex: '0 0 auto' }}>
                   <label style={labelStyle}>Imagem para contexto</label>
                   {imagePreview ? (
