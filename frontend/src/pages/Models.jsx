@@ -1119,6 +1119,11 @@ export default function Models() {
                 </th>
                 <th style={thStyle}>Entrada</th>
                 <th style={thStyle}>Saida</th>
+                <th style={thStyle}>
+                  <span onClick={() => toggleSort('created')} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    Data {renderSortIcon('created')}
+                  </span>
+                </th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Acoes</th>
               </tr>
             </thead>
@@ -1224,6 +1229,11 @@ export default function Models() {
                       {/* Saida */}
                       <td style={tdStyle}>
                         {renderModalityBadges(m.output_modalities)}
+                      </td>
+
+                      {/* Data */}
+                      <td style={{ ...tdStyle, fontSize: '12px', color: '#9ca3af', whiteSpace: 'nowrap' }}>
+                        {m.created ? new Date(m.created * 1000).toLocaleDateString('pt-BR') : '-'}
                       </td>
 
                       {/* Acoes */}
