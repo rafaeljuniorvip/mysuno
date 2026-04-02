@@ -145,10 +145,12 @@ export default function Lyrics() {
   const [imagePreview, setImagePreview] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [versions, setVersions] = useState(1);
   const timerRef = useRef(null);
 
   // State: result
   const [result, setResult] = useState(null);
+  const [activeVersion, setActiveVersion] = useState(0);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
 
@@ -277,6 +279,7 @@ export default function Lyrics() {
 
     setError('');
     setResult(null);
+    setActiveVersion(0);
     setGenerating(true);
 
     try {
@@ -284,13 +287,14 @@ export default function Lyrics() {
         model: selectedModel,
         prompt: prompt.trim(),
         systemPrompt: systemPrompt,
+        versions: versions,
       };
       if (context.trim()) body.context = context.trim();
       if (imageBase64 && supportsImage) body.imageBase64 = imageBase64;
 
       const res = await api.post('/ai/generate-lyrics', body);
       setResult(res.data);
-      fetchConversations(); // Refresh history
+      fetchConversations();
     } catch (err) {
       const msg = err.response?.data?.error || err.response?.data?.message || 'Erro ao gerar letra. Tente novamente.';
       setError(msg);
@@ -300,9 +304,11 @@ export default function Lyrics() {
   };
 
   const handleCopy = async () => {
-    if (!result?.lyrics) return;
+    const allVersions = result?.versions || [result];
+    const current = allVersions[activeVersion] || allVersions[0];
+    if (!current?.lyrics) return;
     try {
-      await navigator.clipboard.writeText(result.lyrics);
+      await navigator.clipboard.writeText(current.lyrics);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -311,8 +317,10 @@ export default function Lyrics() {
   };
 
   const handleUseInGenerator = () => {
-    if (!result) return;
-    navigate('/generate', { state: { lyrics: result.lyrics, title: result.title } });
+    const allVersions = result?.versions || [result];
+    const current = allVersions[activeVersion] || allVersions[0];
+    if (!current) return;
+    navigate('/generate', { state: { lyrics: current.lyrics, title: current.title } });
   };
 
   const handleRegenerate = () => {
@@ -835,8 +843,27 @@ export default function Lyrics() {
               )}
             </div>
 
-            {/* Generate button */}
-            <div style={{ marginTop: '16px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Versions + Generate button */}
+            <div style={{ marginTop: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>Versoes:</span>
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setVersions(n)}
+                    style={{
+                      width: '34px', height: '34px', borderRadius: '8px', border: '1px solid',
+                      borderColor: versions === n ? '#3b82f6' : '#e5e7eb',
+                      backgroundColor: versions === n ? '#eff6ff' : '#fff',
+                      color: versions === n ? '#3b82f6' : '#6b7280',
+                      fontWeight: 600, fontSize: '14px', cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={handleGenerate}
                 disabled={generating || !prompt.trim() || !selectedModel}
@@ -849,11 +876,8 @@ export default function Lyrics() {
                 }}
               >
                 {generating ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={18} />}
-                {generating ? 'Gerando...' : 'Gerar Letra com IA'}
+                {generating ? 'Gerando...' : `Gerar ${versions > 1 ? versions + ' Versoes' : 'Letra'} com IA`}
               </button>
-              {!selectedModel && (
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>Selecione um modelo acima</span>
-              )}
             </div>
           </div>
 
@@ -884,110 +908,87 @@ export default function Lyrics() {
           )}
 
           {/* Result */}
-          {result && !generating && (
+          {result && !generating && (() => {
+            const allVersions = result.versions || [{ lyrics: result.lyrics, title: result.title, model: result.model, tokens: result.tokens, cost: result.cost }];
+            const current = allVersions[activeVersion] || allVersions[0];
+            return (
             <div style={{
               backgroundColor: '#fff',
               borderRadius: '12px',
               border: '1px solid #e5e7eb',
               overflow: 'hidden',
             }}>
-              {/* Result header */}
-              {result.title && (
+              {/* Version tabs */}
+              {allVersions.length > 1 && (
                 <div style={{
-                  padding: '16px 20px',
-                  borderBottom: '1px solid #f3f4f6',
-                  backgroundColor: '#fafbfc',
+                  display: 'flex', gap: '0', borderBottom: '1px solid #e5e7eb',
+                  backgroundColor: '#fafbfc', overflow: 'auto',
                 }}>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#111827' }}>
-                    {result.title}
-                  </h3>
+                  {allVersions.map((v, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveVersion(i)}
+                      style={{
+                        padding: '12px 20px', border: 'none', cursor: 'pointer',
+                        fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap',
+                        backgroundColor: activeVersion === i ? '#fff' : 'transparent',
+                        color: activeVersion === i ? '#3b82f6' : '#6b7280',
+                        borderBottom: activeVersion === i ? '2px solid #3b82f6' : '2px solid transparent',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      Versao {i + 1}
+                      {v.title && <span style={{ fontWeight: 400, marginLeft: '6px', color: '#9ca3af' }}>— {v.title}</span>}
+                    </button>
+                  ))}
                 </div>
               )}
 
               {/* Lyrics content */}
+              {current.title && (
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', backgroundColor: '#fafbfc' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#111827' }}>{current.title}</h3>
+                </div>
+              )}
+
               <div style={{ padding: '20px' }}>
                 <pre style={{
-                  whiteSpace: 'pre-wrap',
-                  wordWrap: 'break-word',
-                  fontFamily: 'inherit',
-                  fontSize: '14px',
-                  lineHeight: '1.7',
-                  color: '#1f2937',
-                  margin: 0,
-                  padding: '16px',
-                  backgroundColor: '#f9fafb',
-                  borderRadius: '8px',
-                  border: '1px solid #f3f4f6',
+                  whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontFamily: 'inherit',
+                  fontSize: '14px', lineHeight: '1.7', color: '#1f2937', margin: 0,
+                  padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6',
                 }}>
-                  {result.lyrics}
+                  {current.lyrics}
                 </pre>
               </div>
 
               {/* Info bar */}
               <div style={{
-                padding: '12px 20px',
-                borderTop: '1px solid #f3f4f6',
-                backgroundColor: '#fafbfc',
-                display: 'flex',
-                gap: '16px',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                fontSize: '12px',
-                color: '#6b7280',
+                padding: '12px 20px', borderTop: '1px solid #f3f4f6', backgroundColor: '#fafbfc',
+                display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', fontSize: '12px', color: '#6b7280',
               }}>
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 10px',
-                  backgroundColor: '#eff6ff',
-                  borderRadius: '6px',
-                  color: '#2563eb',
-                  fontWeight: 500,
-                }}>
-                  Modelo: {shortenModel(result.model)}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', backgroundColor: '#eff6ff', borderRadius: '6px', color: '#2563eb', fontWeight: 500 }}>
+                  Modelo: {shortenModel(current.model || result.model)}
                 </span>
-                {result.tokens > 0 && (
-                  <span style={{
-                    padding: '4px 10px',
-                    backgroundColor: '#f0fdf4',
-                    borderRadius: '6px',
-                    color: '#16a34a',
-                    fontWeight: 500,
-                  }}>
-                    Tokens: {result.tokens.toLocaleString('pt-BR')}
-                  </span>
-                )}
-                {result.cost > 0 && (
-                  <span style={{
-                    padding: '4px 10px',
-                    backgroundColor: '#fefce8',
-                    borderRadius: '6px',
-                    color: '#a16207',
-                    fontWeight: 500,
-                  }}>
-                    Custo: {formatCost(result.cost)}
+                <span style={{ padding: '4px 10px', backgroundColor: '#f0fdf4', borderRadius: '6px', color: '#16a34a', fontWeight: 500 }}>
+                  Tokens: {(result.tokens || 0).toLocaleString('pt-BR')}
+                </span>
+                <span style={{ padding: '4px 10px', backgroundColor: '#fefce8', borderRadius: '6px', color: '#a16207', fontWeight: 500 }}>
+                  Custo total: {formatCost(result.cost)}
+                </span>
+                {allVersions.length > 1 && (
+                  <span style={{ padding: '4px 10px', backgroundColor: '#f3e8ff', borderRadius: '6px', color: '#7c3aed', fontWeight: 500 }}>
+                    {allVersions.length} versoes geradas
                   </span>
                 )}
               </div>
 
               {/* Action buttons */}
-              <div style={{
-                padding: '16px 20px',
-                borderTop: '1px solid #f3f4f6',
-                display: 'flex',
-                gap: '10px',
-                flexWrap: 'wrap',
-              }}>
+              <div style={{ padding: '16px 20px', borderTop: '1px solid #f3f4f6', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button onClick={handleCopy} style={btnSecondary}>
                   {copied ? <CheckCircle size={16} color="#16a34a" /> : <Copy size={16} />}
                   {copied ? 'Copiado!' : 'Copiar'}
                 </button>
-                <button onClick={handleUseInGenerator} style={{
-                  ...btnPrimary,
-                  padding: '8px 16px',
-                  fontSize: '13px',
-                }}>
+                <button onClick={handleUseInGenerator} style={{ ...btnPrimary, padding: '8px 16px', fontSize: '13px' }}>
                   <ArrowRight size={16} />
                   Usar no Gerador de Musica
                 </button>
@@ -997,7 +998,8 @@ export default function Lyrics() {
                 </button>
               </div>
             </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 

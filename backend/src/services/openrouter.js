@@ -77,17 +77,15 @@ async function chat({ model, messages, systemPrompt }) {
   };
 }
 
-async function generateLyricsAI({ model, prompt, imageBase64, context, systemPrompt, userId }) {
+async function generateLyricsAI({ model, prompt, imageBase64, context, systemPrompt, userId, versions = 1 }) {
   const defaultSystem = `Voce e um compositor profissional de musicas. Gere letras de musica em portugues brasileiro seguindo a estrutura padrao: [Intro], [Verse], [Chorus], [Bridge], [Outro]. Seja criativo, use rimas e ritmo natural. Responda APENAS com a letra, sem explicacoes.`;
 
   const userContent = [];
 
-  // Text prompt
   let textPrompt = prompt;
   if (context) textPrompt = `Contexto: ${context}\n\n${prompt}`;
   userContent.push({ type: 'text', text: textPrompt });
 
-  // Image if provided
   if (imageBase64) {
     userContent.push({
       type: 'image_url',
@@ -96,46 +94,61 @@ async function generateLyricsAI({ model, prompt, imageBase64, context, systemPro
   }
 
   const messages = [{ role: 'user', content: userContent.length === 1 ? textPrompt : userContent }];
+  const usedModel = model || 'anthropic/claude-sonnet-4';
+  const usedSystem = systemPrompt || defaultSystem;
+  const count = Math.min(Math.max(parseInt(versions) || 1, 1), 5);
 
-  const result = await chat({
-    model: model || 'anthropic/claude-sonnet-4',
-    messages,
-    systemPrompt: systemPrompt || defaultSystem,
+  // Generate N versions in parallel
+  const promises = Array.from({ length: count }, () =>
+    chat({ model: usedModel, messages, systemPrompt: usedSystem })
+  );
+  const results = await Promise.all(promises);
+
+  const allVersions = results.map((result, i) => {
+    let title = null;
+    let lyrics = result.content;
+    const titleMatch = lyrics.match(/^#\s*(.+)/m) || lyrics.match(/^Titulo:\s*(.+)/im);
+    if (titleMatch) {
+      title = titleMatch[1].trim();
+      lyrics = lyrics.replace(titleMatch[0], '').trim();
+    }
+    return {
+      lyrics,
+      title,
+      model: result.model,
+      tokens: result.usage.total_tokens || 0,
+      cost: parseFloat(result.cost) || 0,
+    };
   });
 
-  // Extract title from first line if bracketed
-  let title = null;
-  let lyrics = result.content;
-  const titleMatch = lyrics.match(/^#\s*(.+)/m) || lyrics.match(/^Titulo:\s*(.+)/im);
-  if (titleMatch) {
-    title = titleMatch[1].trim();
-    lyrics = lyrics.replace(titleMatch[0], '').trim();
-  }
+  const totalTokens = allVersions.reduce((sum, v) => sum + v.tokens, 0);
+  const totalCost = allVersions.reduce((sum, v) => sum + v.cost, 0);
 
-  // Save conversation
+  // Save conversation (store first version as main, all in messages)
   if (userId) {
     await pool.query(
       `INSERT INTO ai_conversations (user_id, model_id, system_prompt, messages, generated_lyrics, generated_title, total_tokens, total_cost)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         userId,
-        model,
-        systemPrompt || defaultSystem,
-        JSON.stringify(messages),
-        lyrics,
-        title,
-        result.usage.total_tokens || 0,
-        result.cost || 0,
+        usedModel,
+        usedSystem,
+        JSON.stringify({ prompt: messages, versions: allVersions }),
+        allVersions[0].lyrics,
+        allVersions[0].title,
+        totalTokens,
+        totalCost,
       ]
     );
   }
 
   return {
-    lyrics,
-    title,
-    model: result.model,
-    tokens: result.usage.total_tokens || 0,
-    cost: result.cost || 0,
+    versions: allVersions,
+    lyrics: allVersions[0].lyrics,
+    title: allVersions[0].title,
+    model: allVersions[0].model,
+    tokens: totalTokens,
+    cost: totalCost,
   };
 }
 

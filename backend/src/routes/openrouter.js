@@ -131,11 +131,11 @@ router.get('/models/sync-info', async (req, res) => {
 // Generate lyrics with AI
 router.post('/generate-lyrics', async (req, res) => {
   try {
-    const { model, prompt, imageBase64, context, systemPrompt } = req.body;
+    const { model, prompt, imageBase64, context, systemPrompt, versions } = req.body;
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
     const result = await generateLyricsAI({
-      model, prompt, imageBase64, context, systemPrompt,
+      model, prompt, imageBase64, context, systemPrompt, versions,
       userId: req.user.id,
     });
 
