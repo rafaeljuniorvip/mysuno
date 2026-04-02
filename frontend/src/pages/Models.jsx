@@ -1,19 +1,39 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   RefreshCw, Search, Filter, Cpu, Star, Image, DollarSign, Clock,
-  ChevronDown, X, Check, Eye, Layers, ChevronLeft, ChevronRight, Loader2
+  ChevronDown, ChevronUp, X, Check, Eye, Layers, ChevronLeft, ChevronRight, Loader2,
+  Shield, Volume2, Type, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import api from '../services/api';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 
 const SORT_OPTIONS = [
-  { value: 'name:ASC', label: 'Nome' },
-  { value: 'provider:ASC', label: 'Provider' },
-  { value: 'context_length:DESC', label: 'Contexto' },
-  { value: 'pricing_prompt:ASC', label: 'Preco' },
-  { value: 'created:DESC', label: 'Data' },
+  { value: 'name:ASC', label: 'Nome A-Z' },
+  { value: 'name:DESC', label: 'Nome Z-A' },
+  { value: 'provider:ASC', label: 'Provider A-Z' },
+  { value: 'provider:DESC', label: 'Provider Z-A' },
+  { value: 'context_length:DESC', label: 'Contexto: Maior' },
+  { value: 'context_length:ASC', label: 'Contexto: Menor' },
+  { value: 'pricing_prompt:ASC', label: 'Preco: Menor' },
+  { value: 'pricing_prompt:DESC', label: 'Preco: Maior' },
+  { value: 'created:DESC', label: 'Mais recente' },
+  { value: 'created:ASC', label: 'Mais antigo' },
+  { value: 'pricing_completion:ASC', label: 'Completion: Menor' },
+  { value: 'pricing_completion:DESC', label: 'Completion: Maior' },
+  { value: 'max_completion_tokens:DESC', label: 'Max Tokens: Maior' },
 ];
+
+const COLUMN_SORT_MAP = {
+  nome: 'name',
+  provider: 'provider',
+  contexto: 'context_length',
+  max_output: 'max_completion_tokens',
+  preco_prompt: 'pricing_prompt',
+  preco_completion: 'pricing_completion',
+};
+
+const LIMIT_OPTIONS = [25, 50, 100];
 
 const PROVIDER_COLORS = {
   openai: { bg: '#dcfce7', color: '#166534' },
@@ -21,6 +41,10 @@ const PROVIDER_COLORS = {
   google: { bg: '#dbeafe', color: '#1e40af' },
   'meta-llama': { bg: '#f3e8ff', color: '#6b21a8' },
   mistralai: { bg: '#fee2e2', color: '#991b1b' },
+  cohere: { bg: '#fef3c7', color: '#92400e' },
+  deepseek: { bg: '#e0f2fe', color: '#0369a1' },
+  microsoft: { bg: '#f0fdf4', color: '#15803d' },
+  perplexity: { bg: '#ede9fe', color: '#5b21b6' },
 };
 
 const getProviderColor = (provider) => {
@@ -39,8 +63,17 @@ function formatPrice(pricePerToken) {
 
 function formatContext(length) {
   if (!length) return '-';
-  if (length >= 1000000) return (length / 1000000).toFixed(0) + 'M';
+  if (length >= 1000000) return (length / 1000000).toFixed(length % 1000000 === 0 ? 0 : 1) + 'M';
   return (length / 1000).toFixed(0) + 'K';
+}
+
+function formatContextInput(value) {
+  if (!value) return '';
+  const num = parseInt(value, 10);
+  if (isNaN(num)) return value;
+  if (num >= 1000000) return (num / 1000000).toFixed(num % 1000000 === 0 ? 0 : 1) + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
+  return String(num);
 }
 
 const MODALITY_LABELS = {
@@ -49,6 +82,14 @@ const MODALITY_LABELS = {
   audio: 'audio',
   video: 'video',
   file: 'arquivo',
+};
+
+const MODALITY_COLORS = {
+  text: { bg: '#f3f4f6', color: '#6b7280' },
+  image: { bg: '#fef3c7', color: '#92400e' },
+  audio: { bg: '#ede9fe', color: '#5b21b6' },
+  video: { bg: '#fce7f3', color: '#9d174d' },
+  file: { bg: '#e0f2fe', color: '#0369a1' },
 };
 
 const inputStyle = {
@@ -104,6 +145,13 @@ const thStyle = {
   whiteSpace: 'nowrap',
 };
 
+const thClickableStyle = {
+  ...thStyle,
+  cursor: 'pointer',
+  userSelect: 'none',
+  transition: 'color 0.15s',
+};
+
 const tdStyle = {
   padding: '14px',
   fontSize: '14px',
@@ -125,6 +173,37 @@ const filterBtnStyle = (active) => ({
   alignItems: 'center',
   gap: '6px',
 });
+
+const chipStyle = (active) => ({
+  padding: '6px 14px',
+  border: '1px solid',
+  borderColor: active ? '#3b82f6' : '#e0e0e0',
+  borderRadius: '20px',
+  backgroundColor: active ? '#eff6ff' : '#fff',
+  color: active ? '#1d4ed8' : '#6b7280',
+  fontSize: '13px',
+  fontWeight: active ? 600 : 400,
+  cursor: 'pointer',
+  transition: 'all 0.15s',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  whiteSpace: 'nowrap',
+});
+
+const activeFilterPillStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '4px 12px',
+  borderRadius: '16px',
+  backgroundColor: '#eff6ff',
+  color: '#1d4ed8',
+  fontSize: '12px',
+  fontWeight: 500,
+  border: '1px solid #bfdbfe',
+  whiteSpace: 'nowrap',
+};
 
 const selectStyle = {
   ...inputStyle,
@@ -150,6 +229,19 @@ const badgeStyle = (bg, color) => ({
   whiteSpace: 'nowrap',
 });
 
+const statBadgeStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '6px 14px',
+  borderRadius: '8px',
+  fontSize: '13px',
+  fontWeight: 500,
+  backgroundColor: '#f9fafb',
+  color: '#374151',
+  border: '1px solid #f3f4f6',
+};
+
 const modalLabelStyle = {
   fontSize: '11px',
   fontWeight: 600,
@@ -165,21 +257,39 @@ const modalValueStyle = {
   fontWeight: 500,
 };
 
+const smallInputStyle = {
+  ...inputStyle,
+  padding: '8px 10px',
+  fontSize: '13px',
+  width: '100px',
+};
+
 export default function Models() {
   const [models, setModels] = useState([]);
   const [providers, setProviders] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, pages: 1 });
+  const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, pages: 1 });
+  const [limit, setLimit] = useState(25);
   const [search, setSearch] = useState('');
   const [providerFilter, setProviderFilter] = useState('');
   const [visionFilter, setVisionFilter] = useState(false);
+  const [freeFilter, setFreeFilter] = useState(false);
+  const [moderatedFilter, setModeratedFilter] = useState('');
+  const [inputModalities, setInputModalities] = useState([]);
+  const [outputModality, setOutputModality] = useState('');
+  const [minContext, setMinContext] = useState('');
+  const [maxContext, setMaxContext] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [sortOption, setSortOption] = useState('name:ASC');
   const [defaultModel, setDefaultModel] = useState('');
   const [detailModel, setDetailModel] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
   const [settingDefault, setSettingDefault] = useState(null);
   const [lastSync, setLastSync] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const fetchModels = useCallback(async (page = 1) => {
     setLoading(true);
@@ -187,29 +297,50 @@ export default function Models() {
       const [sortField, sortOrder] = sortOption.split(':');
       const params = new URLSearchParams({
         page: String(page),
-        limit: '50',
+        limit: String(limit),
         sort: sortField,
         order: sortOrder,
       });
       if (search) params.set('search', search);
       if (providerFilter) params.set('provider', providerFilter);
       if (visionFilter) params.set('vision', 'true');
+      if (freeFilter) params.set('free', 'true');
+      if (moderatedFilter) params.set('moderated', moderatedFilter);
+      if (inputModalities.length > 0) {
+        inputModalities.forEach(mod => params.append('input_modality', mod));
+      }
+      if (outputModality) params.set('output_modality', outputModality);
+      if (minContext) params.set('min_context', minContext);
+      if (maxContext) params.set('max_context', maxContext);
+      if (minPrice) {
+        const perToken = parseFloat(minPrice) / 1000000;
+        params.set('min_price', String(perToken));
+      }
+      if (maxPrice) {
+        const perToken = parseFloat(maxPrice) / 1000000;
+        params.set('max_price', String(perToken));
+      }
 
       const { data } = await api.get(`/ai/models?${params}`);
       setModels(data.data || []);
       setProviders(data.providers || []);
-      setPagination(data.pagination || { page: 1, limit: 50, total: 0, pages: 1 });
-
-      if (data.data && data.data.length > 0) {
-        const synced = data.data.find(m => m.synced_at);
-        if (synced) setLastSync(synced.synced_at);
-      }
+      setStats(data.stats || null);
+      setPagination(data.pagination || { page: 1, limit: 25, total: 0, pages: 1 });
     } catch (err) {
       console.error('Erro ao buscar modelos:', err);
     } finally {
       setLoading(false);
     }
-  }, [search, providerFilter, visionFilter, sortOption]);
+  }, [search, providerFilter, visionFilter, freeFilter, moderatedFilter, inputModalities, outputModality, minContext, maxContext, minPrice, maxPrice, sortOption, limit]);
+
+  const fetchSyncInfo = useCallback(async () => {
+    try {
+      const { data } = await api.get('/ai/models/sync-info');
+      if (data.last_sync) setLastSync(data.last_sync);
+    } catch (err) {
+      // sync-info endpoint may not exist yet
+    }
+  }, []);
 
   const fetchPreferences = useCallback(async () => {
     try {
@@ -226,7 +357,8 @@ export default function Models() {
 
   useEffect(() => {
     fetchPreferences();
-  }, [fetchPreferences]);
+    fetchSyncInfo();
+  }, [fetchPreferences, fetchSyncInfo]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -235,6 +367,7 @@ export default function Models() {
       const { data } = await api.post('/ai/models/sync');
       setSyncResult(data);
       fetchModels(1);
+      fetchSyncInfo();
     } catch (err) {
       console.error('Erro ao sincronizar:', err);
     } finally {
@@ -260,76 +393,175 @@ export default function Models() {
     }
   };
 
+  const handleColumnSort = (columnKey) => {
+    const sortField = COLUMN_SORT_MAP[columnKey];
+    if (!sortField) return;
+    const [currentField, currentOrder] = sortOption.split(':');
+    if (currentField === sortField) {
+      setSortOption(`${sortField}:${currentOrder === 'ASC' ? 'DESC' : 'ASC'}`);
+    } else {
+      const defaultOrder = ['pricing_prompt', 'pricing_completion'].includes(sortField) ? 'ASC' : 'DESC';
+      setSortOption(`${sortField}:${sortField === 'name' || sortField === 'provider' ? 'ASC' : defaultOrder}`);
+    }
+  };
+
+  const toggleInputModality = (mod) => {
+    setInputModalities(prev =>
+      prev.includes(mod) ? prev.filter(m => m !== mod) : [...prev, mod]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setProviderFilter('');
+    setVisionFilter(false);
+    setFreeFilter(false);
+    setModeratedFilter('');
+    setInputModalities([]);
+    setOutputModality('');
+    setMinContext('');
+    setMaxContext('');
+    setMinPrice('');
+    setMaxPrice('');
+    setSortOption('name:ASC');
+  };
+
+  const hasActiveFilters = search || providerFilter || visionFilter || freeFilter || moderatedFilter ||
+    inputModalities.length > 0 || outputModality || minContext || maxContext || minPrice || maxPrice;
+
+  const getActiveFilters = () => {
+    const filters = [];
+    if (providerFilter) filters.push({ key: 'provider', label: `Provider: ${providerFilter}`, clear: () => setProviderFilter('') });
+    if (freeFilter) filters.push({ key: 'free', label: 'Gratuito', clear: () => setFreeFilter(false) });
+    if (visionFilter) filters.push({ key: 'vision', label: 'Com Visao', clear: () => setVisionFilter(false) });
+    if (moderatedFilter === 'true') filters.push({ key: 'moderated', label: 'Moderado', clear: () => setModeratedFilter('') });
+    if (moderatedFilter === 'false') filters.push({ key: 'moderated', label: 'Nao Moderado', clear: () => setModeratedFilter('') });
+    inputModalities.forEach(mod => {
+      filters.push({
+        key: `input_${mod}`,
+        label: `Entrada: ${MODALITY_LABELS[mod] || mod}`,
+        clear: () => setInputModalities(prev => prev.filter(m => m !== mod)),
+      });
+    });
+    if (outputModality) filters.push({ key: 'output', label: `Saida: ${MODALITY_LABELS[outputModality] || outputModality}`, clear: () => setOutputModality('') });
+    if (minContext) filters.push({ key: 'minCtx', label: `Contexto: >${formatContextInput(minContext)}`, clear: () => setMinContext('') });
+    if (maxContext) filters.push({ key: 'maxCtx', label: `Contexto: <${formatContextInput(maxContext)}`, clear: () => setMaxContext('') });
+    if (minPrice) filters.push({ key: 'minPrice', label: `Preco: >$${minPrice}/1M`, clear: () => setMinPrice('') });
+    if (maxPrice) filters.push({ key: 'maxPrice', label: `Preco: <$${maxPrice}/1M`, clear: () => setMaxPrice('') });
+    if (search) filters.push({ key: 'search', label: `Busca: "${search}"`, clear: () => setSearch('') });
+    return filters;
+  };
+
+  const renderSortIcon = (columnKey) => {
+    const sortField = COLUMN_SORT_MAP[columnKey];
+    const [currentField, currentOrder] = sortOption.split(':');
+    if (currentField !== sortField) {
+      return <ArrowUpDown size={12} style={{ opacity: 0.3, marginLeft: '4px' }} />;
+    }
+    return currentOrder === 'ASC'
+      ? <ArrowUp size={12} style={{ color: '#3b82f6', marginLeft: '4px' }} />
+      : <ArrowDown size={12} style={{ color: '#3b82f6', marginLeft: '4px' }} />;
+  };
+
   const renderPagination = () => {
     const { page, pages, total } = pagination;
-    if (pages <= 1) return null;
 
     const pageNumbers = [];
-    const maxVisible = 5;
-    let start = Math.max(1, page - Math.floor(maxVisible / 2));
-    let end = Math.min(pages, start + maxVisible - 1);
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
-
-    for (let i = start; i <= end; i++) {
-      pageNumbers.push(i);
+    if (pages > 1) {
+      const maxVisible = 5;
+      let start = Math.max(1, page - Math.floor(maxVisible / 2));
+      let end = Math.min(pages, start + maxVisible - 1);
+      if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+      }
+      for (let i = start; i <= end; i++) {
+        pageNumbers.push(i);
+      }
     }
 
     return (
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: '6px', padding: '20px 0',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: '12px', padding: '20px 0',
       }}>
-        <button
-          onClick={() => fetchModels(page - 1)}
-          disabled={page <= 1}
-          style={{
-            ...actionBtnStyle,
-            opacity: page <= 1 ? 0.4 : 1,
-            cursor: page <= 1 ? 'default' : 'pointer',
-          }}
-        >
-          <ChevronLeft size={16} />
-        </button>
+        {/* Items per page */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#6b7280' }}>
+          <span>Itens por pagina:</span>
+          {LIMIT_OPTIONS.map(opt => (
+            <button
+              key={opt}
+              onClick={() => { setLimit(opt); }}
+              style={{
+                padding: '4px 10px',
+                border: limit === opt ? '1px solid #3b82f6' : '1px solid #e5e7eb',
+                borderRadius: '6px',
+                background: limit === opt ? '#eff6ff' : '#fff',
+                color: limit === opt ? '#1d4ed8' : '#374151',
+                fontSize: '13px',
+                fontWeight: limit === opt ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
 
-        {start > 1 && (
-          <>
-            <button onClick={() => fetchModels(1)} style={pageBtn(false)}>1</button>
-            {start > 2 && <span style={{ color: '#9ca3af', fontSize: '13px' }}>...</span>}
-          </>
+        {/* Page navigation */}
+        {pages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              onClick={() => fetchModels(page - 1)}
+              disabled={page <= 1}
+              style={{
+                ...actionBtnStyle,
+                opacity: page <= 1 ? 0.4 : 1,
+                cursor: page <= 1 ? 'default' : 'pointer',
+              }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {pageNumbers[0] > 1 && (
+              <>
+                <button onClick={() => fetchModels(1)} style={pageBtn(false)}>1</button>
+                {pageNumbers[0] > 2 && <span style={{ color: '#9ca3af', fontSize: '13px' }}>...</span>}
+              </>
+            )}
+
+            {pageNumbers.map(n => (
+              <button
+                key={n}
+                onClick={() => fetchModels(n)}
+                style={pageBtn(n === page)}
+              >
+                {n}
+              </button>
+            ))}
+
+            {pageNumbers[pageNumbers.length - 1] < pages && (
+              <>
+                {pageNumbers[pageNumbers.length - 1] < pages - 1 && <span style={{ color: '#9ca3af', fontSize: '13px' }}>...</span>}
+                <button onClick={() => fetchModels(pages)} style={pageBtn(false)}>{pages}</button>
+              </>
+            )}
+
+            <button
+              onClick={() => fetchModels(page + 1)}
+              disabled={page >= pages}
+              style={{
+                ...actionBtnStyle,
+                opacity: page >= pages ? 0.4 : 1,
+                cursor: page >= pages ? 'default' : 'pointer',
+              }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         )}
 
-        {pageNumbers.map(n => (
-          <button
-            key={n}
-            onClick={() => fetchModels(n)}
-            style={pageBtn(n === page)}
-          >
-            {n}
-          </button>
-        ))}
-
-        {end < pages && (
-          <>
-            {end < pages - 1 && <span style={{ color: '#9ca3af', fontSize: '13px' }}>...</span>}
-            <button onClick={() => fetchModels(pages)} style={pageBtn(false)}>{pages}</button>
-          </>
-        )}
-
-        <button
-          onClick={() => fetchModels(page + 1)}
-          disabled={page >= pages}
-          style={{
-            ...actionBtnStyle,
-            opacity: page >= pages ? 0.4 : 1,
-            cursor: page >= pages ? 'default' : 'pointer',
-          }}
-        >
-          <ChevronRight size={16} />
-        </button>
-
-        <span style={{ fontSize: '13px', color: '#9ca3af', marginLeft: '12px' }}>
+        <span style={{ fontSize: '13px', color: '#9ca3af' }}>
           Pagina {page} de {pages} ({total} modelos)
         </span>
       </div>
@@ -352,29 +584,18 @@ export default function Models() {
     transition: 'all 0.15s',
   });
 
-  const renderModalities = (inputMods, outputMods) => {
-    const mods = new Set();
-    if (inputMods) {
-      (Array.isArray(inputMods) ? inputMods : [inputMods]).forEach(m => mods.add(m));
-    }
-    if (outputMods) {
-      (Array.isArray(outputMods) ? outputMods : [outputMods]).forEach(m => mods.add(m));
-    }
-    if (mods.size === 0) return <span style={{ color: '#9ca3af' }}>-</span>;
+  const renderModalityBadges = (mods) => {
+    if (!mods) return <span style={{ color: '#9ca3af' }}>-</span>;
+    const list = Array.isArray(mods) ? mods : [mods];
+    if (list.length === 0) return <span style={{ color: '#9ca3af' }}>-</span>;
 
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-        {[...mods].map(m => {
+        {list.map(m => {
           const label = MODALITY_LABELS[m] || m;
-          const isImage = m === 'image';
+          const colors = MODALITY_COLORS[m] || { bg: '#f3f4f6', color: '#6b7280' };
           return (
-            <span
-              key={m}
-              style={badgeStyle(
-                isImage ? '#fef3c7' : '#f3f4f6',
-                isImage ? '#92400e' : '#6b7280'
-              )}
-            >
+            <span key={m} style={badgeStyle(colors.bg, colors.color)}>
               {label}
             </span>
           );
@@ -411,7 +632,14 @@ export default function Models() {
           {m.description && (
             <div>
               <div style={modalLabelStyle}>Descricao</div>
-              <div style={{ ...modalValueStyle, fontWeight: 400, lineHeight: 1.6 }}>{m.description}</div>
+              <div style={{
+                ...modalValueStyle, fontWeight: 400, lineHeight: 1.6,
+                maxHeight: '200px', overflowY: 'auto',
+                padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px',
+                border: '1px solid #f3f4f6', fontSize: '13px',
+              }}>
+                {m.description}
+              </div>
             </div>
           )}
 
@@ -454,13 +682,13 @@ export default function Models() {
             <div>
               <div style={modalLabelStyle}>Modalidades de Entrada</div>
               <div style={{ marginTop: '6px' }}>
-                {renderModalities(m.input_modalities, null)}
+                {renderModalityBadges(m.input_modalities)}
               </div>
             </div>
             <div>
               <div style={modalLabelStyle}>Modalidades de Saida</div>
               <div style={{ marginTop: '6px' }}>
-                {renderModalities(null, m.output_modalities)}
+                {renderModalityBadges(m.output_modalities)}
               </div>
             </div>
           </div>
@@ -472,9 +700,20 @@ export default function Models() {
               m.is_moderated ? '#dcfce7' : '#fef3c7',
               m.is_moderated ? '#166534' : '#92400e'
             )}>
+              <Shield size={12} />
               {m.is_moderated ? 'Sim' : 'Nao'}
             </span>
           </div>
+
+          {/* Last synced */}
+          {m.synced_at && (
+            <div>
+              <div style={modalLabelStyle}>Ultima Sincronizacao</div>
+              <div style={{ ...modalValueStyle, fontSize: '13px', color: '#6b7280' }}>
+                {new Date(m.synced_at).toLocaleString('pt-BR')}
+              </div>
+            </div>
+          )}
 
           {/* Set as default button */}
           <button
@@ -513,9 +752,14 @@ export default function Models() {
           </h1>
           <p style={{ margin: '6px 0 0', fontSize: '14px', color: '#9ca3af' }}>
             Catalogo de modelos disponiveis via OpenRouter
+            {stats && (
+              <span style={{ marginLeft: '8px', fontSize: '13px', color: '#6b7280' }}>
+                - {stats.total} modelos cadastrados
+              </span>
+            )}
             {lastSync && (
               <span style={{ marginLeft: '12px', fontSize: '12px', color: '#d1d5db' }}>
-                Ultima sincronizacao: {new Date(lastSync).toLocaleString('pt-BR')}
+                | Ultima sincronizacao: {new Date(lastSync).toLocaleString('pt-BR')}
               </span>
             )}
           </p>
@@ -545,12 +789,44 @@ export default function Models() {
         </div>
       </div>
 
+      {/* Stats Badges */}
+      {stats && (
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '16px',
+        }}>
+          <span style={statBadgeStyle}>
+            <Cpu size={14} style={{ color: '#6b7280' }} />
+            <strong>{stats.total}</strong> modelos
+          </span>
+          <span style={statBadgeStyle}>
+            <Eye size={14} style={{ color: '#6b7280' }} />
+            <strong>{stats.vision_count}</strong> com visao
+          </span>
+          <span style={statBadgeStyle}>
+            <DollarSign size={14} style={{ color: '#16a34a' }} />
+            <strong>{stats.free_count}</strong> gratuitos
+          </span>
+          <span style={statBadgeStyle}>
+            <Shield size={14} style={{ color: '#6b7280' }} />
+            <strong>{stats.moderated_count}</strong> moderados
+          </span>
+          {stats.min_ctx && stats.max_ctx && (
+            <span style={statBadgeStyle}>
+              <Layers size={14} style={{ color: '#6b7280' }} />
+              Contexto: {formatContext(stats.min_ctx)} - {formatContext(stats.max_ctx)}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Filters */}
       <Card>
+        {/* Main filter row - always visible */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: '12px',
           flexWrap: 'wrap',
         }}>
+          {/* Search */}
           <div style={{ position: 'relative', flex: '1 1 250px', minWidth: '200px' }}>
             <Search size={16} style={{
               position: 'absolute', left: '12px', top: '50%',
@@ -558,7 +834,7 @@ export default function Models() {
             }} />
             <input
               type="text"
-              placeholder="Buscar por nome ou ID..."
+              placeholder="Buscar por nome, ID ou descricao..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKeyDown}
@@ -566,25 +842,21 @@ export default function Models() {
             />
           </div>
 
+          {/* Provider dropdown */}
           <select
             value={providerFilter}
-            onChange={(e) => { setProviderFilter(e.target.value); }}
+            onChange={(e) => setProviderFilter(e.target.value)}
             style={selectStyle}
           >
             <option value="">Todos Providers</option>
             {providers.map(p => (
-              <option key={p} value={p}>{p}</option>
+              <option key={p.provider || p} value={p.provider || p}>
+                {p.provider || p}{p.count ? ` (${p.count})` : ''}
+              </option>
             ))}
           </select>
 
-          <button
-            onClick={() => setVisionFilter(!visionFilter)}
-            style={filterBtnStyle(visionFilter)}
-          >
-            <Image size={14} />
-            Suporta Imagem
-          </button>
-
+          {/* Sort dropdown */}
           <select
             value={sortOption}
             onChange={(e) => setSortOption(e.target.value)}
@@ -594,8 +866,197 @@ export default function Models() {
               <option key={opt.value} value={opt.value}>Ordenar: {opt.label}</option>
             ))}
           </select>
+
+          {/* Advanced filters toggle */}
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            style={{
+              ...filterBtnStyle(showAdvanced),
+              borderColor: showAdvanced ? '#3b82f6' : '#e0e0e0',
+              backgroundColor: showAdvanced ? '#eff6ff' : '#fff',
+              color: showAdvanced ? '#1d4ed8' : '#666',
+            }}
+          >
+            <SlidersHorizontal size={14} />
+            Filtros Avancados
+            {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
         </div>
+
+        {/* Advanced filters - collapsible */}
+        {showAdvanced && (
+          <div style={{
+            marginTop: '16px',
+            paddingTop: '16px',
+            borderTop: '1px solid #f3f4f6',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+          }}>
+            {/* Toggle chips row */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: '4px' }}>
+                Tipo:
+              </span>
+              <button onClick={() => setFreeFilter(!freeFilter)} style={chipStyle(freeFilter)}>
+                <DollarSign size={13} />
+                Gratuitos
+              </button>
+              <button onClick={() => setVisionFilter(!visionFilter)} style={chipStyle(visionFilter)}>
+                <Image size={13} />
+                Com Visao
+              </button>
+              <button
+                onClick={() => setModeratedFilter(moderatedFilter === 'true' ? '' : 'true')}
+                style={chipStyle(moderatedFilter === 'true')}
+              >
+                <Shield size={13} />
+                Moderados
+              </button>
+            </div>
+
+            {/* Input modality row */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: '4px' }}>
+                Entrada:
+              </span>
+              <button onClick={() => toggleInputModality('text')} style={chipStyle(inputModalities.includes('text'))}>
+                <Type size={13} />
+                Texto
+              </button>
+              <button onClick={() => toggleInputModality('image')} style={chipStyle(inputModalities.includes('image'))}>
+                <Image size={13} />
+                Imagem
+              </button>
+              <button onClick={() => toggleInputModality('audio')} style={chipStyle(inputModalities.includes('audio'))}>
+                <Volume2 size={13} />
+                Audio
+              </button>
+            </div>
+
+            {/* Context range */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
+                  Contexto Min
+                </label>
+                <input
+                  type="number"
+                  placeholder="ex: 128000"
+                  value={minContext}
+                  onChange={(e) => setMinContext(e.target.value)}
+                  style={smallInputStyle}
+                />
+                {minContext && (
+                  <span style={{ fontSize: '11px', color: '#6b7280', marginLeft: '6px' }}>
+                    ({formatContextInput(minContext)})
+                  </span>
+                )}
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
+                  Contexto Max
+                </label>
+                <input
+                  type="number"
+                  placeholder="ex: 1000000"
+                  value={maxContext}
+                  onChange={(e) => setMaxContext(e.target.value)}
+                  style={smallInputStyle}
+                />
+                {maxContext && (
+                  <span style={{ fontSize: '11px', color: '#6b7280', marginLeft: '6px' }}>
+                    ({formatContextInput(maxContext)})
+                  </span>
+                )}
+              </div>
+
+              <div style={{ width: '1px', height: '36px', backgroundColor: '#e5e7eb' }} />
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
+                  Preco Min ($/1M)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="ex: 0.10"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  style={smallInputStyle}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
+                  Preco Max ($/1M)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="ex: 10.00"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  style={smallInputStyle}
+                />
+              </div>
+
+              <div style={{ flex: 1 }} />
+
+              {/* Clear filters */}
+              {hasActiveFilters && (
+                <button
+                  onClick={clearAllFilters}
+                  style={{
+                    ...filterBtnStyle(false),
+                    color: '#ef4444',
+                    borderColor: '#fecaca',
+                  }}
+                >
+                  <X size={14} />
+                  Limpar Filtros
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
+
+      {/* Active Filters Pills */}
+      {hasActiveFilters && (
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: '8px',
+          padding: '12px 0', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500, marginRight: '4px' }}>
+            Filtros ativos:
+          </span>
+          {getActiveFilters().map(f => (
+            <span key={f.key} style={activeFilterPillStyle}>
+              {f.label}
+              <button
+                onClick={f.clear}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '0', display: 'flex', alignItems: 'center',
+                  color: '#1d4ed8',
+                }}
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+          <button
+            onClick={clearAllFilters}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '12px', color: '#ef4444', fontWeight: 500,
+              padding: '4px 8px',
+            }}
+          >
+            Limpar todos
+          </button>
+        </div>
+      )}
 
       {/* Stats bar */}
       <div style={{
@@ -626,26 +1087,52 @@ export default function Models() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #f3f4f6' }}>
-                <th style={thStyle}>Nome</th>
-                <th style={thStyle}>Provider</th>
-                <th style={thStyle}>Contexto</th>
-                <th style={thStyle}>Preco (Prompt)</th>
-                <th style={thStyle}>Preco (Completion)</th>
-                <th style={thStyle}>Modalidades</th>
+                <th style={thClickableStyle} onClick={() => handleColumnSort('nome')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Nome {renderSortIcon('nome')}
+                  </span>
+                </th>
+                <th style={thClickableStyle} onClick={() => handleColumnSort('provider')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Provider {renderSortIcon('provider')}
+                  </span>
+                </th>
+                <th style={thClickableStyle} onClick={() => handleColumnSort('contexto')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Contexto {renderSortIcon('contexto')}
+                  </span>
+                </th>
+                <th style={thClickableStyle} onClick={() => handleColumnSort('max_output')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Max Output {renderSortIcon('max_output')}
+                  </span>
+                </th>
+                <th style={thClickableStyle} onClick={() => handleColumnSort('preco_prompt')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Preco Prompt {renderSortIcon('preco_prompt')}
+                  </span>
+                </th>
+                <th style={thClickableStyle} onClick={() => handleColumnSort('preco_completion')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Preco Completion {renderSortIcon('preco_completion')}
+                  </span>
+                </th>
+                <th style={thStyle}>Entrada</th>
+                <th style={thStyle}>Saida</th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Acoes</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>
+                  <td colSpan={9} style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>
                     <Loader2 size={24} className="spin" style={{ margin: '0 auto 10px', display: 'block' }} />
                     Carregando modelos...
                   </td>
                 </tr>
               ) : models.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>
+                  <td colSpan={9} style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>
                     <Cpu size={32} style={{ margin: '0 auto 10px', display: 'block', opacity: 0.4 }} />
                     Nenhum modelo encontrado. Tente sincronizar os modelos.
                   </td>
@@ -654,6 +1141,8 @@ export default function Models() {
                 models.map((m) => {
                   const pc = getProviderColor(m.provider);
                   const isDefault = defaultModel === m.id;
+                  const providerObj = providers.find(p => (p.provider || p) === m.provider);
+                  const providerCount = providerObj && providerObj.count ? providerObj.count : null;
                   return (
                     <tr
                       key={m.id}
@@ -672,7 +1161,7 @@ export default function Models() {
                       {/* Nome */}
                       <td style={{ ...tdStyle, maxWidth: '320px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {isDefault && <Star size={14} color="#f59e0b" fill="#f59e0b" />}
+                          {isDefault && <Star size={14} color="#f59e0b" fill="#f59e0b" style={{ flexShrink: 0 }} />}
                           <div>
                             <div style={{ fontWeight: 600, color: '#111827', fontSize: '14px', lineHeight: 1.3 }}>
                               {m.name}
@@ -691,6 +1180,11 @@ export default function Models() {
                       <td style={tdStyle}>
                         <span style={badgeStyle(pc.bg, pc.color)}>
                           {m.provider}
+                          {providerCount && (
+                            <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '2px' }}>
+                              ({providerCount})
+                            </span>
+                          )}
                         </span>
                       </td>
 
@@ -699,19 +1193,37 @@ export default function Models() {
                         {formatContext(m.context_length)}
                       </td>
 
+                      {/* Max Output */}
+                      <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 500, fontSize: '13px' }}>
+                        {m.max_completion_tokens ? formatContext(m.max_completion_tokens) : '-'}
+                      </td>
+
                       {/* Preco Prompt */}
                       <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '13px' }}>
-                        {formatPrice(m.pricing_prompt)}
+                        <span style={{
+                          color: !m.pricing_prompt || parseFloat(m.pricing_prompt) === 0 ? '#16a34a' : '#374151',
+                        }}>
+                          {formatPrice(m.pricing_prompt)}
+                        </span>
                       </td>
 
                       {/* Preco Completion */}
                       <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '13px' }}>
-                        {formatPrice(m.pricing_completion)}
+                        <span style={{
+                          color: !m.pricing_completion || parseFloat(m.pricing_completion) === 0 ? '#16a34a' : '#374151',
+                        }}>
+                          {formatPrice(m.pricing_completion)}
+                        </span>
                       </td>
 
-                      {/* Modalidades */}
+                      {/* Entrada */}
                       <td style={tdStyle}>
-                        {renderModalities(m.input_modalities, m.output_modalities)}
+                        {renderModalityBadges(m.input_modalities)}
+                      </td>
+
+                      {/* Saida */}
+                      <td style={tdStyle}>
+                        {renderModalityBadges(m.output_modalities)}
                       </td>
 
                       {/* Acoes */}

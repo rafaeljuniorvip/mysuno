@@ -1,14 +1,20 @@
 const { Router } = require('express');
 const { pool } = require('../config/database');
 const { syncModels, generateLyricsAI } = require('../services/openrouter');
-const { jwtAuth } = require('../middlewares/auth');
 
 const router = Router();
 
-// List models from DB with filters
+// List models with advanced filters
 router.get('/models', async (req, res) => {
   try {
-    const { provider, vision, search, sort = 'name', order = 'ASC', page = 1, limit = 50 } = req.query;
+    const {
+      provider, vision, search, sort = 'name', order = 'ASC',
+      page = 1, limit = 50,
+      // Advanced filters
+      moderated, free, min_context, max_context,
+      min_price, max_price, output_modality, input_modality,
+    } = req.query;
+
     const params = [];
     const conditions = [];
 
@@ -19,14 +25,52 @@ router.get('/models', async (req, res) => {
     if (vision === 'true') {
       conditions.push(`'image' = ANY(input_modalities)`);
     }
+    if (input_modality) {
+      params.push(input_modality);
+      conditions.push(`$${params.length} = ANY(input_modalities)`);
+    }
+    if (output_modality) {
+      params.push(output_modality);
+      conditions.push(`$${params.length} = ANY(output_modalities)`);
+    }
     if (search) {
       params.push(`%${search}%`);
-      conditions.push(`(name ILIKE $${params.length} OR id ILIKE $${params.length})`);
+      conditions.push(`(name ILIKE $${params.length} OR id ILIKE $${params.length} OR description ILIKE $${params.length})`);
+    }
+    if (moderated === 'true') {
+      conditions.push('is_moderated = true');
+    } else if (moderated === 'false') {
+      conditions.push('is_moderated = false');
+    }
+    if (free === 'true') {
+      conditions.push("(pricing_prompt = '0' OR pricing_prompt IS NULL)");
+    }
+    if (min_context) {
+      params.push(parseInt(min_context));
+      conditions.push(`context_length >= $${params.length}`);
+    }
+    if (max_context) {
+      params.push(parseInt(max_context));
+      conditions.push(`context_length <= $${params.length}`);
+    }
+    if (min_price) {
+      params.push(min_price);
+      conditions.push(`pricing_prompt::numeric >= $${params.length}::numeric`);
+    }
+    if (max_price) {
+      params.push(max_price);
+      conditions.push(`pricing_prompt::numeric <= $${params.length}::numeric`);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const allowedSorts = ['name', 'provider', 'context_length', 'pricing_prompt', 'created', 'synced_at'];
+
+    const allowedSorts = [
+      'name', 'provider', 'context_length', 'pricing_prompt', 'pricing_completion',
+      'created', 'synced_at', 'max_completion_tokens', 'id',
+    ];
     const sortCol = allowedSorts.includes(sort) ? sort : 'name';
+    // Cast pricing columns to numeric for proper sorting
+    const sortExpr = sortCol.startsWith('pricing_') ? `${sortCol}::numeric` : sortCol;
     const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     const offset = (page - 1) * limit;
 
@@ -35,16 +79,27 @@ router.get('/models', async (req, res) => {
 
     params.push(limit, offset);
     const result = await pool.query(
-      `SELECT * FROM ai_models ${where} ORDER BY ${sortCol} ${sortOrder} LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      `SELECT * FROM ai_models ${where} ORDER BY ${sortExpr} ${sortOrder} NULLS LAST LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
 
-    // Get distinct providers for filter dropdown
-    const providersRes = await pool.query('SELECT DISTINCT provider FROM ai_models ORDER BY provider');
+    // Aggregates for filter UI
+    const [providersRes, statsRes] = await Promise.all([
+      pool.query('SELECT provider, COUNT(*) as count FROM ai_models GROUP BY provider ORDER BY count DESC'),
+      pool.query(`SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE 'image' = ANY(input_modalities)) as vision_count,
+        COUNT(*) FILTER (WHERE pricing_prompt = '0' OR pricing_prompt IS NULL) as free_count,
+        COUNT(*) FILTER (WHERE is_moderated = true) as moderated_count,
+        MIN(context_length) as min_ctx,
+        MAX(context_length) as max_ctx
+      FROM ai_models`),
+    ]);
 
     res.json({
       data: result.rows,
-      providers: providersRes.rows.map(r => r.provider),
+      providers: providersRes.rows,
+      stats: statsRes.rows[0],
       pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / limit) },
     });
   } catch (err) {
@@ -63,6 +118,16 @@ router.post('/models/sync', async (req, res) => {
   }
 });
 
+// Last sync info
+router.get('/models/sync-info', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT MAX(synced_at) as last_sync, COUNT(*) as total FROM ai_models');
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Generate lyrics with AI
 router.post('/generate-lyrics', async (req, res) => {
   try {
@@ -70,11 +135,7 @@ router.post('/generate-lyrics', async (req, res) => {
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
     const result = await generateLyricsAI({
-      model,
-      prompt,
-      imageBase64,
-      context,
-      systemPrompt,
+      model, prompt, imageBase64, context, systemPrompt,
       userId: req.user.id,
     });
 

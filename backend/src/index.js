@@ -11,6 +11,8 @@ const sunoRoutes = require('./routes/suno');
 const songsRoutes = require('./routes/songs');
 const reportsRoutes = require('./routes/reports');
 const openrouterRoutes = require('./routes/openrouter');
+const cron = require('node-cron');
+const { syncModels } = require('./services/openrouter');
 
 const app = express();
 
@@ -39,6 +41,17 @@ async function start() {
     await refreshToken();
     console.log('[MySuno] Authentication successful!');
     startKeepAlive();
+
+    // Sync OpenRouter models every day at 3:00 AM (America/Sao_Paulo)
+    cron.schedule('0 3 * * *', async () => {
+      try {
+        const result = await syncModels();
+        console.log(`[Cron] OpenRouter models synced: ${result.synced}`);
+      } catch (err) {
+        console.error('[Cron] OpenRouter sync failed:', err.message);
+      }
+    }, { timezone: 'America/Sao_Paulo' });
+    console.log('[MySuno] Cron: OpenRouter sync scheduled at 03:00 AM');
 
     app.listen(config.PORT, () => {
       console.log(`[MySuno] Backend running on http://localhost:${config.PORT}`);
