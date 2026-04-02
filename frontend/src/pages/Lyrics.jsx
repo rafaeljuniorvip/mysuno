@@ -364,7 +364,8 @@ export default function Lyrics() {
       setGeneratingMusic(prev => ({ ...prev, [idx]: 'done' }));
     } catch (err) {
       setGeneratingMusic(prev => ({ ...prev, [idx]: 'error' }));
-      console.error('Erro ao gerar musica:', err);
+      const msg = err.response?.data?.error || err.message;
+      setError(`Erro na versao ${idx + 1}: ${msg}`);
     }
   };
 
