@@ -14,6 +14,9 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - SUNO_API_KEY=${SUNO_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - MEDIA_DIR=/app/data/media
+    volumes:
+      - mysuno_media:/app/data/media
     depends_on:
       - db
     networks:
@@ -81,6 +84,7 @@ services:
 
 volumes:
   mysuno_pgdata:
+  mysuno_media:
 
 networks:
   minha_rede:

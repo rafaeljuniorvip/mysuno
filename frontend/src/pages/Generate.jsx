@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Music2, Wand2, Copy, ArrowRight, Loader2, Download, Clock, X, History, CheckCircle, Eye } from 'lucide-react';
-import api from '../services/api';
+import api, { resolveMediaUrl } from '../services/api';
 import Card from '../components/ui/Card';
 import AudioPlayer from '../components/ui/AudioPlayer';
 
@@ -441,12 +441,12 @@ const ResultCard = ({ song, index, navigate }) => {
     }}>
       <div style={{ display: 'flex', gap: '0', flexDirection: 'row', flexWrap: 'wrap' }}>
         {/* Cover Image */}
-        {song.image_url && (
+        {resolveMediaUrl(song.image_url) && (
           <div style={{
             width: '140px',
             minHeight: '140px',
             flexShrink: 0,
-            backgroundImage: `url(${song.image_url})`,
+            backgroundImage: `url(${resolveMediaUrl(song.image_url)})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             borderRadius: '12px 0 0 12px',
@@ -467,9 +467,9 @@ const ResultCard = ({ song, index, navigate }) => {
               )}
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              {song.audio_url && (
+              {resolveMediaUrl(song.audio_url) && (
                 <a
-                  href={song.audio_url}
+                  href={resolveMediaUrl(song.audio_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
@@ -521,8 +521,8 @@ const ResultCard = ({ song, index, navigate }) => {
           )}
 
           {/* Audio Player */}
-          {song.audio_url && (
-            <AudioPlayer src={song.audio_url} title={song.title} />
+          {resolveMediaUrl(song.audio_url) && (
+            <AudioPlayer src={resolveMediaUrl(song.audio_url)} title={song.title} />
           )}
         </div>
       </div>

@@ -1,10 +1,32 @@
 const { Router } = require('express');
 const { pool } = require('../config/database');
 const { syncPendingSongs } = require('../services/suno');
+const { downloadAllPending, downloadAndSaveSong } = require('../services/storage');
 
 const router = Router();
 
 // === STATIC ROUTES FIRST (before :id) ===
+
+// Download all songs from CDN to local storage
+router.post('/download/all', async (req, res) => {
+  try {
+    const result = await downloadAllPending();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Download single song to local storage
+router.post('/download/:id', async (req, res) => {
+  try {
+    const result = await downloadAndSaveSong(req.params.id);
+    if (!result) return res.status(404).json({ error: 'Song not found' });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Stats overview
 router.get('/stats/overview', async (req, res) => {

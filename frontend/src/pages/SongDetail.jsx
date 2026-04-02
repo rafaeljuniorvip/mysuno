@@ -5,7 +5,7 @@ import {
   Loader2, Hash, Heart, Download, Copy, Check, ChevronDown, ChevronUp,
   Edit3, X, Save, FileText, Link2, Info
 } from 'lucide-react';
-import api from '../services/api';
+import api, { resolveMediaUrl } from '../services/api';
 import Card from '../components/ui/Card';
 import AudioPlayer from '../components/ui/AudioPlayer';
 
@@ -196,7 +196,7 @@ export default function SongDetail() {
 
   const handleCopyLink = () => {
     if (song?.audio_url) {
-      navigator.clipboard.writeText(song.audio_url);
+      navigator.clipboard.writeText(resolveMediaUrl(song.audio_url));
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
     }
@@ -290,9 +290,9 @@ export default function SongDetail() {
           >
             <Heart size={16} fill={favorited ? '#dc2626' : 'none'} /> Favoritar
           </button>
-          {song.audio_url && (
+          {resolveMediaUrl(song.audio_url) && (
             <a
-              href={song.audio_url}
+              href={resolveMediaUrl(song.audio_url)}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -427,17 +427,17 @@ export default function SongDetail() {
         {/* Direita: Player + Imagem + Compartilhar + Estender */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {/* Audio */}
-          {song.audio_url && (
+          {resolveMediaUrl(song.audio_url) && (
             <Card title="Audio">
-              <AudioPlayer src={song.audio_url} title={song.title} />
+              <AudioPlayer src={resolveMediaUrl(song.audio_url)} title={song.title} />
             </Card>
           )}
 
           {/* Capa */}
-          {song.image_url && (
+          {resolveMediaUrl(song.image_url) && (
             <Card title="Capa">
               <img
-                src={song.image_url}
+                src={resolveMediaUrl(song.image_url)}
                 alt={song.title}
                 style={{
                   width: '100%', borderRadius: '10px', maxHeight: '320px',
@@ -465,7 +465,7 @@ export default function SongDetail() {
           )}
 
           {/* Compartilhar / Copiar Link */}
-          {song.audio_url && (
+          {resolveMediaUrl(song.audio_url) && (
             <Card title="Compartilhar">
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <div style={{
@@ -473,7 +473,7 @@ export default function SongDetail() {
                   border: '1px solid #e5e7eb', fontSize: '13px', color: '#6b7280',
                   fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
-                  {song.audio_url}
+                  {resolveMediaUrl(song.audio_url)}
                 </div>
                 <button
                   onClick={handleCopyLink}
@@ -555,8 +555,8 @@ export default function SongDetail() {
                     </strong>
                     {extendResult.map((clip, i) => (
                       <div key={clip.id || i} style={{ marginTop: i > 0 ? '10px' : 0 }}>
-                        {clip.audio_url ? (
-                          <AudioPlayer src={clip.audio_url} title={clip.title} />
+                        {resolveMediaUrl(clip.audio_url) ? (
+                          <AudioPlayer src={resolveMediaUrl(clip.audio_url)} title={clip.title} />
                         ) : (
                           <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
                             Clip gerado (ID: {clip.suno_id || clip.id}) - audio ainda nao disponivel.

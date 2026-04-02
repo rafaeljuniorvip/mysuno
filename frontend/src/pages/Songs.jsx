@@ -5,7 +5,7 @@ import {
   Heart, Grid, List, SortDesc, CheckSquare, Square, Music, Clock,
   X, Download, Check
 } from 'lucide-react';
-import api from '../services/api';
+import api, { resolveMediaUrl } from '../services/api';
 import Card from '../components/ui/Card';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
@@ -334,7 +334,7 @@ export default function Songs() {
       label: 'Acoes',
       render: (_, row) => (
         <div style={{ display: 'flex', gap: '6px' }}>
-          {row.audio_url && (
+          {resolveMediaUrl(row.audio_url) && (
             <button
               onClick={() => setPlayerSong(row)}
               title="Reproduzir"
@@ -381,7 +381,7 @@ export default function Songs() {
         width: '100%',
         height: '160px',
         backgroundColor: '#f0f0f0',
-        backgroundImage: song.image_url ? `url(${song.image_url})` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        backgroundImage: song.image_url ? `url(${resolveMediaUrl(song.image_url)})` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         position: 'relative',
@@ -431,7 +431,7 @@ export default function Songs() {
         </button>
 
         {/* Play overlay */}
-        {song.audio_url && (
+        {resolveMediaUrl(song.audio_url) && (
           <button
             onClick={(e) => { e.stopPropagation(); setPlayerSong(song); }}
             style={{
@@ -981,7 +981,7 @@ export default function Songs() {
         title={playerSong?.title || 'Reproduzir Musica'}
       >
         {playerSong && (
-          <AudioPlayer src={playerSong.audio_url} title={playerSong.title} />
+          <AudioPlayer src={resolveMediaUrl(playerSong.audio_url)} title={playerSong.title} />
         )}
       </Modal>
     </div>

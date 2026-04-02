@@ -2,6 +2,7 @@ const axios = require('axios');
 const config = require('../config/env');
 const { getToken } = require('./auth');
 const { pool } = require('../config/database');
+const { downloadAndSaveSong } = require('./storage');
 
 const SUNOAPI_BASE = 'https://api.sunoapi.org';
 const CALLBACK_URL = 'https://api.mysn.vipte.co/api/suno/callback';
@@ -242,6 +243,15 @@ async function pollAndSave(taskId, generationId) {
     const clips = normalizeClips(result);
     await saveClips(clips);
     await updateGeneration(generationId, 'complete');
+
+    // Download files to local storage in background
+    for (const clip of clips) {
+      if (clip.id) {
+        downloadAndSaveSong(clip.id).catch(err =>
+          console.error(`[Storage] Background download failed for ${clip.id}:`, err.message)
+        );
+      }
+    }
   } catch (err) {
     console.error('[Suno] Background poll failed:', err.message);
     await updateGeneration(generationId, 'failed');

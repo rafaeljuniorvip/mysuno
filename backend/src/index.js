@@ -12,7 +12,9 @@ const songsRoutes = require('./routes/songs');
 const reportsRoutes = require('./routes/reports');
 const openrouterRoutes = require('./routes/openrouter');
 const cron = require('node-cron');
+const path = require('path');
 const { syncModels } = require('./services/openrouter');
+const { downloadAllPending, getMediaPath } = require('./services/storage');
 
 const app = express();
 
@@ -29,6 +31,9 @@ app.use('/api/suno', combinedAuth, sunoRoutes);
 app.use('/api/songs', combinedAuth, songsRoutes);
 app.use('/api/reports', combinedAuth, reportsRoutes);
 app.use('/api/ai', combinedAuth, openrouterRoutes);
+
+// Serve local media files (audio, images)
+app.use('/media', express.static(getMediaPath()));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'mysuno-api' });

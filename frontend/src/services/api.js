@@ -25,4 +25,13 @@ api.interceptors.response.use(
   }
 );
 
+const API_ORIGIN = import.meta.env.PROD ? 'https://api.mysn.vipte.co' : '';
+
+// Resolve media URLs: /media/... → full URL, external URLs pass through
+export function resolveMediaUrl(url) {
+  if (!url) return null;
+  if (url.startsWith('/media/')) return `${API_ORIGIN}${url}`;
+  return url;
+}
+
 export default api;
