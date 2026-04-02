@@ -181,7 +181,7 @@ router.get('/preferences', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM user_preferences WHERE user_id = $1', [req.user.id]);
     if (result.rows.length === 0) {
-      return res.json({ user_id: req.user.id, default_model: 'anthropic/claude-sonnet-4', default_system_prompt: null });
+      return res.json({ user_id: req.user.id, default_model: 'anthropic/claude-sonnet-4', default_image_model: 'openai/gpt-4o', default_system_prompt: null });
     }
     res.json(result.rows[0]);
   } catch (err) {
@@ -192,16 +192,17 @@ router.get('/preferences', async (req, res) => {
 // Update user preferences
 router.put('/preferences', async (req, res) => {
   try {
-    const { default_model, default_system_prompt } = req.body;
+    const { default_model, default_image_model, default_system_prompt } = req.body;
     const result = await pool.query(
-      `INSERT INTO user_preferences (user_id, default_model, default_system_prompt, updated_at)
-       VALUES ($1, $2, $3, NOW())
+      `INSERT INTO user_preferences (user_id, default_model, default_image_model, default_system_prompt, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
        ON CONFLICT (user_id) DO UPDATE SET
          default_model = COALESCE(EXCLUDED.default_model, user_preferences.default_model),
+         default_image_model = COALESCE(EXCLUDED.default_image_model, user_preferences.default_image_model),
          default_system_prompt = EXCLUDED.default_system_prompt,
          updated_at = NOW()
        RETURNING *`,
-      [req.user.id, default_model, default_system_prompt]
+      [req.user.id, default_model, default_image_model, default_system_prompt]
     );
     res.json(result.rows[0]);
   } catch (err) {

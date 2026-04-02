@@ -31,6 +31,7 @@ const COLUMN_SORT_MAP = {
   max_output: 'max_completion_tokens',
   preco_prompt: 'pricing_prompt',
   preco_completion: 'pricing_completion',
+  data: 'created',
 };
 
 const LIMIT_OPTIONS = [25, 50, 100];
@@ -285,6 +286,7 @@ export default function Models() {
   const [maxPrice, setMaxPrice] = useState('');
   const [sortOption, setSortOption] = useState('name:ASC');
   const [defaultModel, setDefaultModel] = useState('');
+  const [defaultImageModel, setDefaultImageModel] = useState('');
   const [detailModel, setDetailModel] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
   const [settingDefault, setSettingDefault] = useState(null);
@@ -346,6 +348,7 @@ export default function Models() {
     try {
       const { data } = await api.get('/ai/preferences');
       setDefaultModel(data.default_model || '');
+      setDefaultImageModel(data.default_image_model || '');
     } catch (err) {
       console.error('Erro ao buscar preferencias:', err);
     }
@@ -375,11 +378,16 @@ export default function Models() {
     }
   };
 
-  const handleSetDefault = async (modelId) => {
-    setSettingDefault(modelId);
+  const handleSetDefault = async (modelId, type = 'text') => {
+    setSettingDefault(`${type}:${modelId}`);
     try {
-      await api.put('/ai/preferences', { default_model: modelId });
-      setDefaultModel(modelId);
+      if (type === 'image') {
+        await api.put('/ai/preferences', { default_image_model: modelId });
+        setDefaultImageModel(modelId);
+      } else {
+        await api.put('/ai/preferences', { default_model: modelId });
+        setDefaultModel(modelId);
+      }
     } catch (err) {
       console.error('Erro ao definir modelo padrao:', err);
     } finally {
@@ -608,7 +616,7 @@ export default function Models() {
     if (!detailModel) return null;
     const m = detailModel;
     const pc = getProviderColor(m.provider);
-    const isDefault = defaultModel === m.id;
+    const isDefault = defaultModel === m.id || defaultImageModel === m.id;
 
     return (
       <Modal isOpen={!!detailModel} onClose={() => setDetailModel(null)} title="Detalhes do Modelo">
@@ -1074,8 +1082,17 @@ export default function Models() {
           <>
             <span style={{ color: '#e5e7eb' }}>|</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Star size={12} color="#f59e0b" fill="#f59e0b" />
-              Padrao: <strong style={{ color: '#374151', fontFamily: 'monospace', fontSize: '12px' }}>{defaultModel}</strong>
+              <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#3b82f6', fontSize: '10px', fontWeight: 700 }}>TXT</span>
+              <strong style={{ color: '#374151', fontFamily: 'monospace', fontSize: '12px' }}>{defaultModel.split('/').pop()}</strong>
+            </span>
+          </>
+        )}
+        {defaultImageModel && (
+          <>
+            <span style={{ color: '#e5e7eb' }}>|</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: '#f3e8ff', color: '#8b5cf6', fontSize: '10px', fontWeight: 700 }}>IMG</span>
+              <strong style={{ color: '#374151', fontFamily: 'monospace', fontSize: '12px' }}>{defaultImageModel.split('/').pop()}</strong>
             </span>
           </>
         )}
@@ -1119,9 +1136,9 @@ export default function Models() {
                 </th>
                 <th style={thStyle}>Entrada</th>
                 <th style={thStyle}>Saida</th>
-                <th style={thStyle}>
-                  <span onClick={() => toggleSort('created')} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    Data {renderSortIcon('created')}
+                <th style={thClickableStyle} onClick={() => handleColumnSort('data')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Data {renderSortIcon('data')}
                   </span>
                 </th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Acoes</th>
@@ -1145,7 +1162,7 @@ export default function Models() {
               ) : (
                 models.map((m) => {
                   const pc = getProviderColor(m.provider);
-                  const isDefault = defaultModel === m.id;
+                  const isDefault = defaultModel === m.id || defaultImageModel === m.id;
                   const providerObj = providers.find(p => (p.provider || p) === m.provider);
                   const providerCount = providerObj && providerObj.count ? providerObj.count : null;
                   return (
@@ -1238,25 +1255,48 @@ export default function Models() {
 
                       {/* Acoes */}
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                          <button
-                            onClick={() => handleSetDefault(m.id)}
-                            disabled={isDefault || settingDefault === m.id}
-                            title={isDefault ? 'Modelo padrao atual' : 'Definir como padrao'}
-                            style={{
-                              ...actionBtnStyle,
-                              borderColor: isDefault ? '#f59e0b' : '#e0e0e0',
-                              color: isDefault ? '#f59e0b' : '#666',
-                              opacity: settingDefault === m.id ? 0.5 : 1,
-                              cursor: isDefault ? 'default' : 'pointer',
-                            }}
-                          >
-                            {settingDefault === m.id ? (
-                              <Loader2 size={14} className="spin" />
-                            ) : (
-                              <Star size={14} fill={isDefault ? '#f59e0b' : 'none'} />
-                            )}
-                          </button>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          {(() => {
+                            const isTextDefault = defaultModel === m.id;
+                            const isImgDefault = defaultImageModel === m.id;
+                            const supportsVision = m.input_modalities?.includes('image');
+                            return (
+                              <>
+                                <button
+                                  onClick={() => handleSetDefault(m.id, 'text')}
+                                  disabled={isTextDefault || settingDefault === `text:${m.id}`}
+                                  title={isTextDefault ? 'Modelo padrao para letras' : 'Definir como padrao para letras'}
+                                  style={{
+                                    ...actionBtnStyle,
+                                    borderColor: isTextDefault ? '#3b82f6' : '#e0e0e0',
+                                    color: isTextDefault ? '#3b82f6' : '#666',
+                                    opacity: settingDefault === `text:${m.id}` ? 0.5 : 1,
+                                    cursor: isTextDefault ? 'default' : 'pointer',
+                                    fontSize: '10px', fontWeight: 700, padding: '4px 6px',
+                                  }}
+                                >
+                                  {settingDefault === `text:${m.id}` ? <Loader2 size={12} className="spin" /> : 'TXT'}
+                                </button>
+                                {supportsVision && (
+                                  <button
+                                    onClick={() => handleSetDefault(m.id, 'image')}
+                                    disabled={isImgDefault || settingDefault === `image:${m.id}`}
+                                    title={isImgDefault ? 'Modelo padrao para imagem' : 'Definir como padrao para imagem'}
+                                    style={{
+                                      ...actionBtnStyle,
+                                      borderColor: isImgDefault ? '#8b5cf6' : '#e0e0e0',
+                                      color: isImgDefault ? '#8b5cf6' : '#666',
+                                      opacity: settingDefault === `image:${m.id}` ? 0.5 : 1,
+                                      cursor: isImgDefault ? 'default' : 'pointer',
+                                      fontSize: '10px', fontWeight: 700, padding: '4px 6px',
+                                    }}
+                                  >
+                                    {settingDefault === `image:${m.id}` ? <Loader2 size={12} className="spin" /> : 'IMG'}
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
                           <button
                             onClick={() => setDetailModel(m)}
                             title="Detalhes"
