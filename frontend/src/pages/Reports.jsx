@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { CreditCard, Music, Calendar, Zap, Clock, TrendingUp, Download, CheckCircle, XCircle } from 'lucide-react';
-import api from '../services/api';
+import api, { formatDate } from '../services/api';
 import Card from '../components/ui/Card';
 import Table from '../components/ui/Table';
 
@@ -306,7 +306,7 @@ export default function Reports() {
                 />
                 <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} axisLine={{ stroke: '#e5e7eb' }} />
                 <Tooltip
-                  labelFormatter={(val) => val ? new Date(val).toLocaleDateString('pt-BR') : ''}
+                  labelFormatter={(val) => formatDate(val)}
                   contentStyle={tooltipStyle}
                   formatter={(value) => [value, 'Musicas']}
                 />
@@ -338,7 +338,7 @@ export default function Reports() {
                 />
                 <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} axisLine={{ stroke: '#e5e7eb' }} />
                 <Tooltip
-                  labelFormatter={(val) => val ? new Date(val).toLocaleDateString('pt-BR') : ''}
+                  labelFormatter={(val) => formatDate(val)}
                   contentStyle={tooltipStyle}
                   formatter={(value) => [value, 'Creditos']}
                 />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Music2, Wand2, Copy, ArrowRight, Loader2, Download, Clock, X, History, CheckCircle, Eye } from 'lucide-react';
-import api, { resolveMediaUrl } from '../services/api';
+import api, { resolveMediaUrl, formatDate } from '../services/api';
 import Card from '../components/ui/Card';
 import AudioPlayer from '../components/ui/AudioPlayer';
 
@@ -1130,7 +1130,7 @@ export default function Generate() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                     <StatusBadge status={song.status} />
                     <span style={{ fontSize: '12px', color: '#bbb' }}>
-                      {song.created_at ? new Date(song.created_at).toLocaleDateString('pt-BR') : ''}
+                      {formatDate(song.created_at)}
                     </span>
                   </div>
                 </div>

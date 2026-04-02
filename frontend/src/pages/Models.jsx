@@ -4,7 +4,7 @@ import {
   ChevronDown, ChevronUp, X, Check, Eye, Layers, ChevronLeft, ChevronRight, Loader2,
   Shield, Volume2, Type, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
-import api from '../services/api';
+import api, { formatDate, formatDateTime } from '../services/api';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 
@@ -680,7 +680,7 @@ export default function Models() {
             <div>
               <div style={modalLabelStyle}>Criado em</div>
               <div style={modalValueStyle}>
-                {m.created ? new Date(m.created).toLocaleDateString('pt-BR') : '-'}
+                {formatDate(m.created ? m.created * 1000 : null) || '-'}
               </div>
             </div>
           </div>
@@ -718,7 +718,7 @@ export default function Models() {
             <div>
               <div style={modalLabelStyle}>Ultima Sincronizacao</div>
               <div style={{ ...modalValueStyle, fontSize: '13px', color: '#6b7280' }}>
-                {new Date(m.synced_at).toLocaleString('pt-BR')}
+                {formatDateTime(m.synced_at)}
               </div>
             </div>
           )}
@@ -767,7 +767,7 @@ export default function Models() {
             )}
             {lastSync && (
               <span style={{ marginLeft: '12px', fontSize: '12px', color: '#d1d5db' }}>
-                | Ultima sincronizacao: {new Date(lastSync).toLocaleString('pt-BR')}
+                | Ultima sincronizacao: {formatDateTime(lastSync)}
               </span>
             )}
           </p>
@@ -1250,7 +1250,7 @@ export default function Models() {
 
                       {/* Data */}
                       <td style={{ ...tdStyle, fontSize: '12px', color: '#9ca3af', whiteSpace: 'nowrap' }}>
-                        {m.created ? new Date(m.created * 1000).toLocaleDateString('pt-BR') : '-'}
+                        {formatDate(m.created ? m.created * 1000 : null) || '-'}
                       </td>
 
                       {/* Acoes */}

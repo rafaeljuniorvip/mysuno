@@ -5,7 +5,7 @@ import {
   Heart, Grid, List, SortDesc, CheckSquare, Square, Music, Clock,
   X, Download, Check
 } from 'lucide-react';
-import api, { resolveMediaUrl } from '../services/api';
+import api, { resolveMediaUrl, formatDateTime } from '../services/api';
 import Card from '../components/ui/Card';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
@@ -324,10 +324,7 @@ export default function Songs() {
     {
       key: 'created_at',
       label: 'Criado em',
-      render: (val) => val ? new Date(val).toLocaleDateString('pt-BR', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      }) : '--',
+      render: (val) => formatDateTime(val),
     },
     {
       key: 'actions',

@@ -5,7 +5,7 @@ import {
   Loader2, Hash, Heart, Download, Copy, Check, ChevronDown, ChevronUp,
   Edit3, X, Save, FileText, Link2, Info
 } from 'lucide-react';
-import api, { resolveMediaUrl } from '../services/api';
+import api, { resolveMediaUrl, formatDateTime } from '../services/api';
 import Card from '../components/ui/Card';
 import AudioPlayer from '../components/ui/AudioPlayer';
 
@@ -361,7 +361,7 @@ export default function SongDetail() {
               <InfoGridItem icon={Clock} label="Duracao" value={formatDuration(song.duration)} />
               <InfoGridItem icon={Cpu} label="Modelo" value={song.model_name || song.model} />
               <InfoGridItem icon={Calendar} label="Criado em" value={
-                song.created_at ? new Date(song.created_at).toLocaleString('pt-BR') : null
+                formatDateTime(song.created_at) || null
               } />
               <InfoGridItem icon={Music} label="Tipo" value={song.generation_type || song.type || '--'} />
               <InfoGridItem icon={Info} label="Status" value={statusLabels[song.status] || song.status} />

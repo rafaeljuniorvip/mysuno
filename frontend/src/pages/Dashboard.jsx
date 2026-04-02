@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw, CreditCard, Music, Calendar, Zap, Sparkles, Library, Heart, Trash2, TrendingUp } from 'lucide-react';
-import api from '../services/api';
+import api, { formatDateTime } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/ui/Card';
 import Table from '../components/ui/Table';
@@ -127,12 +127,13 @@ const formatTotalDuration = (seconds) => {
   return `${m}min`;
 };
 
-const formatDate = () => {
+const formatGreetingDate = () => {
   return new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
   });
 };
 
@@ -209,9 +210,7 @@ export default function Dashboard() {
     {
       key: 'created_at',
       label: 'Criado em',
-      render: (val) => val
-        ? new Date(val).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-        : '--',
+      render: (val) => formatDateTime(val),
     },
   ];
 
@@ -238,7 +237,7 @@ export default function Dashboard() {
             Ola, {getFirstName(user)}!
           </h1>
           <p style={{ margin: 0, fontSize: '14px', color: '#888', textTransform: 'capitalize' }}>
-            {formatDate()}
+            {formatGreetingDate()}
           </p>
         </div>
         <button

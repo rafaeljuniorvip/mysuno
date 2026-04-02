@@ -4,7 +4,7 @@ import {
   Key, UserPlus, Trash2, Copy, Check, Plus, Shield, Loader2,
   Sun, Download, AlertTriangle, Calendar, Music, CreditCard, Eye, EyeOff
 } from 'lucide-react';
-import api from '../services/api';
+import api, { formatDate } from '../services/api';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 
@@ -242,7 +242,7 @@ export default function Settings() {
             <AccountStat
               icon={Calendar}
               label="Membro desde"
-              value={user?.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '--'}
+              value={formatDate(user?.created_at)}
               color="#3b82f6"
             />
             <AccountStat
@@ -325,7 +325,7 @@ export default function Settings() {
                     <tr key={e.id} style={{ borderBottom: '1px solid #f9fafb', transition: 'background 0.1s' }}>
                       <td style={tdStyle}>{e.email}</td>
                       <td style={{ ...tdStyle, color: '#9ca3af', fontSize: '13px' }}>
-                        {new Date(e.created_at).toLocaleDateString('pt-BR')}
+                        {formatDate(e.created_at)}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
                         <button
@@ -392,7 +392,7 @@ export default function Settings() {
                       {k.key_prefix}...****
                     </td>
                     <td style={{ ...tdStyle, color: '#9ca3af', fontSize: '13px' }}>
-                      {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString('pt-BR') : 'Nunca'}
+                      {k.last_used_at ? formatDate(k.last_used_at) : 'Nunca'}
                     </td>
                     <td style={{ ...tdStyle, color: '#9ca3af', fontSize: '13px', textAlign: 'center' }}>
                       {k.request_count ?? '\u2014'}

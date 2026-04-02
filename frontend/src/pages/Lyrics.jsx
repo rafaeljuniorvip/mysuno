@@ -5,7 +5,7 @@ import {
   Clock, X, Plus, Menu, Image as ImageIcon, Save, Search, MessageSquare, Trash2,
   CheckCircle, Settings2
 } from 'lucide-react';
-import api from '../services/api';
+import api, { formatDateShort, formatTime } from '../services/api';
 
 const inputStyle = {
   width: '100%',
@@ -67,11 +67,9 @@ const labelStyle = {
   marginBottom: '6px',
 };
 
-function formatDate(dateStr) {
+function formatConvDate(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) +
-    ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return formatDateShort(dateStr) + ' ' + formatTime(dateStr);
 }
 
 function formatCost(cost) {
@@ -511,7 +509,7 @@ export default function Lyrics() {
                   {shortenModel(conv.model_id)}
                 </span>
                 <span style={{ fontSize: '11px', color: '#9ca3af' }}>
-                  {formatDate(conv.created_at)}
+                  {formatConvDate(conv.created_at)}
                 </span>
               </div>
               {conv.total_cost > 0 && (

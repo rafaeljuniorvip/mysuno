@@ -34,4 +34,26 @@ export function resolveMediaUrl(url) {
   return url;
 }
 
+const TZ = 'America/Sao_Paulo';
+
+export function formatDate(val) {
+  if (!val) return '--';
+  return new Date(val).toLocaleDateString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+export function formatDateTime(val) {
+  if (!val) return '--';
+  return new Date(val).toLocaleString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export function formatDateShort(val) {
+  if (!val) return '--';
+  return new Date(val).toLocaleDateString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+export function formatTime(val) {
+  if (!val) return '--';
+  return new Date(val).toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+}
+
 export default api;
