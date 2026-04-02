@@ -126,9 +126,10 @@ export default function Lyrics() {
 
   // State: models
   const [models, setModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState('');
+  const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('mysuno_last_model') || '');
   const [modelSearch, setModelSearch] = useState('');
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [modelModalOpen, setModelModalOpen] = useState(false);
+  const [modelFilter, setModelFilter] = useState('all'); // all, free, vision
 
   // State: preferences
   const [systemPrompt, setSystemPrompt] = useState('Voce e um compositor profissional. Crie letras de musica criativas, poeticas e emocionantes com base nas instrucoes do usuario. Responda apenas com a letra da musica, sem explicacoes adicionais.');
@@ -158,7 +159,6 @@ export default function Lyrics() {
 
   // Refs
   const fileInputRef = useRef(null);
-  const modelDropdownRef = useRef(null);
   const promptRef = useRef(null);
 
   // --- Data fetching ---
@@ -186,7 +186,7 @@ export default function Lyrics() {
   const fetchPreferences = useCallback(async () => {
     try {
       const res = await api.get('/ai/preferences');
-      if (res.data?.default_model) setSelectedModel(res.data.default_model);
+      if (res.data?.default_model && !localStorage.getItem('mysuno_last_model')) setSelectedModel(res.data.default_model);
       if (res.data?.default_system_prompt) setSystemPrompt(res.data.default_system_prompt);
     } catch (err) {
       console.error('Erro ao carregar preferencias:', err);
@@ -199,16 +199,13 @@ export default function Lyrics() {
     fetchPreferences();
   }, [fetchConversations, fetchModels, fetchPreferences]);
 
-  // Close model dropdown on outside click
-  useEffect(() => {
-    function handleClick(e) {
-      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target)) {
-        setModelDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
+  // Save last used model to localStorage
+  const selectModel = (modelId) => {
+    setSelectedModel(modelId);
+    localStorage.setItem('mysuno_last_model', modelId);
+    setModelModalOpen(false);
+    setModelSearch('');
+  };
 
   // Timer for elapsed time
   useEffect(() => {
@@ -225,6 +222,8 @@ export default function Lyrics() {
   const selectedModelObj = models.find(m => m.id === selectedModel);
 
   const filteredModels = models.filter(m => {
+    if (modelFilter === 'free' && parseFloat(m.pricing_prompt) > 0) return false;
+    if (modelFilter === 'vision' && !m.input_modalities?.includes('image')) return false;
     if (!modelSearch) return true;
     const q = modelSearch.toLowerCase();
     return (m.name?.toLowerCase().includes(q) || m.id?.toLowerCase().includes(q) || m.provider?.toLowerCase().includes(q));
@@ -605,113 +604,24 @@ export default function Lyrics() {
             </div>
 
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              {/* Model selector */}
-              <div ref={modelDropdownRef} style={{ position: 'relative', minWidth: '260px' }}>
-                <button
-                  onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-                  style={{
-                    ...inputStyle,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    padding: '8px 12px',
-                    fontSize: '13px',
-                    backgroundColor: '#fff',
-                    width: '100%',
-                    textAlign: 'left',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <span style={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    flex: 1,
-                    color: selectedModel ? '#111827' : '#9ca3af',
-                  }}>
-                    {selectedModel ? (selectedModelObj?.name || shortenModel(selectedModel)) : 'Selecionar modelo...'}
-                  </span>
-                  <ChevronDown size={16} color="#6b7280" style={{ flexShrink: 0, marginLeft: '8px' }} />
-                </button>
-
-                {modelDropdownOpen && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    marginTop: '4px',
-                    backgroundColor: '#fff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
-                    zIndex: 100,
-                    maxHeight: '320px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}>
-                    <div style={{ padding: '8px', borderBottom: '1px solid #f3f4f6' }}>
-                      <div style={{ position: 'relative' }}>
-                        <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
-                        <input
-                          type="text"
-                          placeholder="Buscar modelo..."
-                          value={modelSearch}
-                          onChange={e => setModelSearch(e.target.value)}
-                          style={{
-                            ...inputStyle,
-                            paddingLeft: '32px',
-                            fontSize: '13px',
-                            padding: '8px 10px 8px 32px',
-                          }}
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-                    <div style={{ overflowY: 'auto', maxHeight: '260px' }}>
-                      {filteredModels.length === 0 ? (
-                        <div style={{ padding: '16px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>
-                          Nenhum modelo encontrado.
-                        </div>
-                      ) : (
-                        filteredModels.map(m => (
-                          <button
-                            key={m.id}
-                            onClick={() => {
-                              setSelectedModel(m.id);
-                              setModelDropdownOpen(false);
-                              setModelSearch('');
-                            }}
-                            style={{
-                              width: '100%',
-                              textAlign: 'left',
-                              padding: '8px 12px',
-                              border: 'none',
-                              backgroundColor: m.id === selectedModel ? '#eff6ff' : 'transparent',
-                              cursor: 'pointer',
-                              fontFamily: 'inherit',
-                              transition: 'background 0.1s',
-                            }}
-                            onMouseEnter={e => { if (m.id !== selectedModel) e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-                            onMouseLeave={e => { if (m.id !== selectedModel) e.currentTarget.style.backgroundColor = m.id === selectedModel ? '#eff6ff' : 'transparent'; }}
-                          >
-                            <div style={{ fontSize: '13px', fontWeight: 500, color: '#111827' }}>
-                              {m.name || shortenModel(m.id)}
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                              <span>{m.provider}</span>
-                              <span>In: {formatPrice(m.pricing_prompt)}</span>
-                              <span>Out: {formatPrice(m.pricing_completion)}</span>
-                              {m.context_length && <span>{(m.context_length / 1000).toFixed(0)}k ctx</span>}
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
+              {/* Model selector button */}
+              <button
+                onClick={() => setModelModalOpen(true)}
+                style={{
+                  ...inputStyle,
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  cursor: 'pointer', padding: '8px 14px', fontSize: '13px',
+                  backgroundColor: '#fff', minWidth: '260px', textAlign: 'left', fontFamily: 'inherit',
+                }}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, color: selectedModel ? '#111827' : '#9ca3af' }}>
+                  {selectedModel ? (selectedModelObj?.name || shortenModel(selectedModel)) : 'Selecionar modelo...'}
+                </span>
+                {selectedModelObj && (
+                  <span style={{ fontSize: '10px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{selectedModelObj.provider}</span>
                 )}
-              </div>
+                <ChevronDown size={16} color="#6b7280" style={{ flexShrink: 0 }} />
+              </button>
 
               {/* System prompt toggle */}
               <button
@@ -1142,6 +1052,119 @@ export default function Lyrics() {
           })()}
         </div>
       </div>
+
+      {/* Model Selection Modal */}
+      {modelModalOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '20px', backdropFilter: 'blur(4px)',
+        }} onClick={() => setModelModalOpen(false)}>
+          <div style={{
+            backgroundColor: '#fff', borderRadius: '16px', width: '100%', maxWidth: '700px',
+            maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          }} onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #f3f4f6' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#111827' }}>Selecionar Modelo de IA</h3>
+                <button onClick={() => setModelModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                  <X size={20} color="#6b7280" />
+                </button>
+              </div>
+              {/* Search */}
+              <div style={{ position: 'relative', marginBottom: '10px' }}>
+                <Search size={16} color="#9ca3af" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text" placeholder="Buscar por nome, provider ou ID..."
+                  value={modelSearch} onChange={e => setModelSearch(e.target.value)}
+                  style={{ ...inputStyle, paddingLeft: '36px' }}
+                  autoFocus
+                />
+              </div>
+              {/* Filters */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { value: 'all', label: 'Todos' },
+                  { value: 'free', label: 'Gratuitos' },
+                  { value: 'vision', label: 'Com Visao' },
+                ].map(f => (
+                  <button key={f.value} onClick={() => setModelFilter(f.value)} style={{
+                    padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                    border: '1px solid', cursor: 'pointer', transition: 'all 0.15s',
+                    borderColor: modelFilter === f.value ? '#3b82f6' : '#e5e7eb',
+                    backgroundColor: modelFilter === f.value ? '#eff6ff' : '#fff',
+                    color: modelFilter === f.value ? '#3b82f6' : '#6b7280',
+                  }}>
+                    {f.label}
+                  </button>
+                ))}
+                <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#9ca3af', alignSelf: 'center' }}>
+                  {filteredModels.length} modelos
+                </span>
+              </div>
+            </div>
+            {/* List */}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {filteredModels.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>Nenhum modelo encontrado.</div>
+              ) : (
+                filteredModels.map(m => {
+                  const isSelected = m.id === selectedModel;
+                  const isFree = !m.pricing_prompt || parseFloat(m.pricing_prompt) === 0;
+                  const hasVision = m.input_modalities?.includes('image');
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => selectModel(m.id)}
+                      style={{
+                        width: '100%', textAlign: 'left', padding: '12px 24px',
+                        border: 'none', borderBottom: '1px solid #f9fafb',
+                        backgroundColor: isSelected ? '#eff6ff' : 'transparent',
+                        cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = '#f9fafb'; }}
+                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = isSelected ? '#eff6ff' : 'transparent'; }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
+                            {isSelected && <CheckCircle size={14} color="#3b82f6" style={{ marginRight: '6px', verticalAlign: 'middle' }} />}
+                            {m.name || m.id}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace', marginTop: '2px' }}>{m.id}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                          <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#6b7280' }}>
+                            {m.provider}
+                          </span>
+                          {isFree && (
+                            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, backgroundColor: '#dcfce7', color: '#166534' }}>GRATIS</span>
+                          )}
+                          {hasVision && (
+                            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, backgroundColor: '#f3e8ff', color: '#7c3aed' }}>VISAO</span>
+                          )}
+                          {!isFree && (
+                            <span style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>
+                              ${(parseFloat(m.pricing_prompt) * 1e6).toFixed(2)}/1M
+                            </span>
+                          )}
+                          {m.context_length && (
+                            <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+                              {m.context_length >= 1e6 ? (m.context_length / 1e6).toFixed(0) + 'M' : (m.context_length / 1e3).toFixed(0) + 'K'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes spin {
