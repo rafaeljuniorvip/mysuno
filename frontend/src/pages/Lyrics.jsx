@@ -146,13 +146,17 @@ export default function Lyrics() {
   const [generating, setGenerating] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [versions, setVersions] = useState(1);
+  const [songSize, setSongSize] = useState('normal');
   const timerRef = useRef(null);
 
   // State: result
   const [result, setResult] = useState(null);
   const [activeVersion, setActiveVersion] = useState(0);
+  const [editedLyrics, setEditedLyrics] = useState({});
+  const [editMode, setEditMode] = useState({});
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  const [generatingMusic, setGeneratingMusic] = useState({});
 
   // Refs
   const fileInputRef = useRef(null);
@@ -282,9 +286,17 @@ export default function Lyrics() {
     setGenerating(true);
 
     try {
+      const sizeInstructions = {
+        curta: 'Gere uma letra CURTA com no maximo 1 verso e 1 refrao (cerca de 8-12 linhas).',
+        normal: 'Gere uma letra com 2 versos, 1 refrao e 1 bridge (cerca de 20-30 linhas).',
+        longa: 'Gere uma letra LONGA com 3 versos, 2 refroes, 1 bridge e 1 outro (cerca de 40-50 linhas).',
+        epica: 'Gere uma letra EPICA e completa com 4+ versos, 2+ refroes, bridge, pre-chorus e outro (60+ linhas).',
+      };
+      const sizePrompt = sizeInstructions[songSize] || sizeInstructions.normal;
+
       const body = {
         model: selectedModel,
-        prompt: prompt.trim(),
+        prompt: `${sizePrompt}\n\n${prompt.trim()}`,
         systemPrompt: systemPrompt,
         versions: versions,
       };
@@ -293,6 +305,9 @@ export default function Lyrics() {
 
       const res = await api.post('/ai/generate-lyrics', body);
       setResult(res.data);
+      setEditedLyrics({});
+      setEditMode({});
+      setGeneratingMusic({});
       fetchConversations();
     } catch (err) {
       const msg = err.response?.data?.error || err.response?.data?.message || 'Erro ao gerar letra. Tente novamente.';
@@ -319,11 +334,45 @@ export default function Lyrics() {
     const allVersions = result?.versions || [result];
     const current = allVersions[activeVersion] || allVersions[0];
     if (!current) return;
-    navigate('/generate', { state: { lyrics: current.lyrics, title: current.title } });
+    const lyrics = editedLyrics[activeVersion] ?? current.lyrics;
+    navigate('/generate', { state: { lyrics, title: current.title } });
   };
 
   const handleRegenerate = () => {
     handleGenerate();
+  };
+
+  const getLyricsForVersion = (idx) => {
+    const allVersions = result?.versions || [result];
+    const v = allVersions[idx] || allVersions[0];
+    return editedLyrics[idx] ?? v?.lyrics ?? '';
+  };
+
+  const handleGenerateMusic = async (idx) => {
+    const allVersions = result?.versions || [result];
+    const v = allVersions[idx];
+    if (!v) return;
+    const lyrics = getLyricsForVersion(idx);
+    setGeneratingMusic(prev => ({ ...prev, [idx]: true }));
+    try {
+      await api.post('/suno/custom_generate', {
+        prompt: lyrics,
+        tags: '',
+        title: v.title || `Versao ${idx + 1}`,
+        make_instrumental: false,
+      });
+      setGeneratingMusic(prev => ({ ...prev, [idx]: 'done' }));
+    } catch (err) {
+      setGeneratingMusic(prev => ({ ...prev, [idx]: 'error' }));
+      console.error('Erro ao gerar musica:', err);
+    }
+  };
+
+  const handleGenerateAllMusic = async () => {
+    const allVersions = result?.versions || [result];
+    for (let i = 0; i < allVersions.length; i++) {
+      await handleGenerateMusic(i);
+    }
   };
 
   const handleNewConversation = () => {
@@ -842,9 +891,36 @@ export default function Lyrics() {
               )}
             </div>
 
-            {/* Versions + Generate button */}
-            <div style={{ marginTop: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Song size + Versions + Generate button */}
+            <div style={{ marginTop: '16px', display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              {/* Song size */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>Tamanho:</span>
+                {[
+                  { value: 'curta', label: 'Curta', desc: '~12 linhas' },
+                  { value: 'normal', label: 'Normal', desc: '~25 linhas' },
+                  { value: 'longa', label: 'Longa', desc: '~45 linhas' },
+                  { value: 'epica', label: 'Epica', desc: '60+ linhas' },
+                ].map(s => (
+                  <button
+                    key={s.value}
+                    onClick={() => setSongSize(s.value)}
+                    title={s.desc}
+                    style={{
+                      padding: '6px 12px', borderRadius: '8px', border: '1px solid',
+                      borderColor: songSize === s.value ? '#3b82f6' : '#e5e7eb',
+                      backgroundColor: songSize === s.value ? '#eff6ff' : '#fff',
+                      color: songSize === s.value ? '#3b82f6' : '#6b7280',
+                      fontWeight: 600, fontSize: '12px', cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              {/* Versions */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>Versoes:</span>
                 {[1, 2, 3, 4, 5].map(n => (
                   <button
@@ -863,6 +939,7 @@ export default function Lyrics() {
                   </button>
                 ))}
               </div>
+              {/* Generate button */}
               <button
                 onClick={handleGenerate}
                 disabled={generating || !prompt.trim() || !selectedModel}
@@ -951,13 +1028,45 @@ export default function Lyrics() {
               )}
 
               <div style={{ padding: '20px' }}>
-                <pre style={{
-                  whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontFamily: 'inherit',
-                  fontSize: '14px', lineHeight: '1.7', color: '#1f2937', margin: 0,
-                  padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6',
-                }}>
-                  {current.lyrics}
-                </pre>
+                {editMode[activeVersion] ? (
+                  <textarea
+                    value={editedLyrics[activeVersion] ?? current.lyrics}
+                    onChange={(e) => setEditedLyrics(prev => ({ ...prev, [activeVersion]: e.target.value }))}
+                    style={{
+                      width: '100%', minHeight: '400px', fontFamily: 'inherit',
+                      fontSize: '14px', lineHeight: '1.7', color: '#1f2937', margin: 0,
+                      padding: '16px', backgroundColor: '#fff', borderRadius: '8px',
+                      border: '2px solid #3b82f6', resize: 'vertical', outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                ) : (
+                  <pre
+                    onClick={() => setEditMode(prev => ({ ...prev, [activeVersion]: true }))}
+                    style={{
+                      whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontFamily: 'inherit',
+                      fontSize: '14px', lineHeight: '1.7', color: '#1f2937', margin: 0,
+                      padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px',
+                      border: '1px solid #f3f4f6', cursor: 'text',
+                    }}
+                    title="Clique para editar"
+                  >
+                    {editedLyrics[activeVersion] ?? current.lyrics}
+                  </pre>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+                    {editMode[activeVersion] ? 'Editando — suas alteracoes serao usadas ao gerar a musica' : 'Clique no texto para editar'}
+                  </span>
+                  {editMode[activeVersion] && (
+                    <button
+                      onClick={() => setEditMode(prev => ({ ...prev, [activeVersion]: false }))}
+                      style={{ ...btnSecondary, padding: '4px 12px', fontSize: '12px' }}
+                    >
+                      <CheckCircle size={12} /> Pronto
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Info bar */}
@@ -982,14 +1091,47 @@ export default function Lyrics() {
               </div>
 
               {/* Action buttons */}
-              <div style={{ padding: '16px 20px', borderTop: '1px solid #f3f4f6', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ padding: '16px 20px', borderTop: '1px solid #f3f4f6', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <button onClick={handleCopy} style={btnSecondary}>
                   {copied ? <CheckCircle size={16} color="#16a34a" /> : <Copy size={16} />}
                   {copied ? 'Copiado!' : 'Copiar'}
                 </button>
-                <button onClick={handleUseInGenerator} style={{ ...btnPrimary, padding: '8px 16px', fontSize: '13px' }}>
+                <button
+                  onClick={() => handleGenerateMusic(activeVersion)}
+                  disabled={generatingMusic[activeVersion] === true}
+                  style={{
+                    ...btnPrimary, padding: '8px 16px', fontSize: '13px',
+                    background: generatingMusic[activeVersion] === 'done' ? '#10b981' : generatingMusic[activeVersion] === 'error' ? '#ef4444' : undefined,
+                    opacity: generatingMusic[activeVersion] === true ? 0.7 : 1,
+                  }}
+                >
+                  {generatingMusic[activeVersion] === true ? (
+                    <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
+                  ) : generatingMusic[activeVersion] === 'done' ? (
+                    <><CheckCircle size={16} /> Enviada!</>
+                  ) : generatingMusic[activeVersion] === 'error' ? (
+                    <><X size={16} /> Erro</>
+                  ) : (
+                    <><Sparkles size={16} /> Gerar Musica desta Versao</>
+                  )}
+                </button>
+                {allVersions.length > 1 && (
+                  <button
+                    onClick={handleGenerateAllMusic}
+                    disabled={Object.values(generatingMusic).some(v => v === true)}
+                    style={{
+                      ...btnPrimary, padding: '8px 16px', fontSize: '13px',
+                      background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+                    }}
+                  >
+                    <Sparkles size={16} />
+                    Gerar Musica de Todas ({allVersions.length})
+                  </button>
+                )}
+                <div style={{ flex: 1 }} />
+                <button onClick={handleUseInGenerator} style={btnSecondary}>
                   <ArrowRight size={16} />
-                  Usar no Gerador de Musica
+                  Abrir no Gerador
                 </button>
                 <button onClick={handleRegenerate} style={btnSecondary}>
                   <RotateCcw size={16} />
