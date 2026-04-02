@@ -75,9 +75,10 @@ function formatDate(dateStr) {
 }
 
 function formatCost(cost) {
-  if (!cost || cost === 0) return '$0.00';
-  if (cost < 0.01) return `$${cost.toFixed(4)}`;
-  return `$${cost.toFixed(2)}`;
+  const n = parseFloat(cost) || 0;
+  if (n === 0) return '$0.00';
+  if (n < 0.01) return `$${n.toFixed(4)}`;
+  return `$${n.toFixed(2)}`;
 }
 
 function shortenModel(modelId) {

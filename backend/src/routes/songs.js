@@ -127,7 +127,7 @@ router.get('/', async (req, res) => {
 // Get single song
 router.get('/:id', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM songs WHERE (id = $1 OR suno_id = $1) AND deleted_at IS NULL', [req.params.id]);
+    const result = await pool.query('SELECT * FROM songs WHERE (id::text = $1 OR suno_id = $1) AND deleted_at IS NULL', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Song not found' });
     res.json(result.rows[0]);
   } catch (err) {
@@ -153,7 +153,7 @@ router.patch('/:id', async (req, res) => {
     params.push(req.params.id);
 
     const result = await pool.query(
-      `UPDATE songs SET ${updates.join(', ')} WHERE (id = $${params.length} OR suno_id = $${params.length}) AND deleted_at IS NULL RETURNING *`,
+      `UPDATE songs SET ${updates.join(', ')} WHERE (id::text = $${params.length} OR suno_id = $${params.length}) AND deleted_at IS NULL RETURNING *`,
       params
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Song not found' });
@@ -167,7 +167,7 @@ router.patch('/:id', async (req, res) => {
 router.post('/:id/favorite', async (req, res) => {
   try {
     const result = await pool.query(
-      'UPDATE songs SET is_favorite = NOT is_favorite, updated_at = NOW() WHERE (id = $1 OR suno_id = $1) AND deleted_at IS NULL RETURNING id, is_favorite',
+      'UPDATE songs SET is_favorite = NOT is_favorite, updated_at = NOW() WHERE (id::text = $1 OR suno_id = $1) AND deleted_at IS NULL RETURNING id, is_favorite',
       [req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Song not found' });
@@ -181,7 +181,7 @@ router.post('/:id/favorite', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const result = await pool.query(
-      'UPDATE songs SET deleted_at = NOW() WHERE (id = $1 OR suno_id = $1) AND deleted_at IS NULL RETURNING *',
+      'UPDATE songs SET deleted_at = NOW() WHERE (id::text = $1 OR suno_id = $1) AND deleted_at IS NULL RETURNING *',
       [req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Song not found' });
@@ -195,7 +195,7 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/restore', async (req, res) => {
   try {
     const result = await pool.query(
-      'UPDATE songs SET deleted_at = NULL, updated_at = NOW() WHERE (id = $1 OR suno_id = $1) AND deleted_at IS NOT NULL RETURNING *',
+      'UPDATE songs SET deleted_at = NULL, updated_at = NOW() WHERE (id::text = $1 OR suno_id = $1) AND deleted_at IS NOT NULL RETURNING *',
       [req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Song not found or not deleted' });

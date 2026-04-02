@@ -59,9 +59,10 @@ const filterBtnStyle = (active) => ({
 });
 
 const formatDuration = (val) => {
-  if (!val) return '--';
-  const mins = Math.floor(val / 60);
-  const secs = Math.floor(val % 60);
+  const n = parseFloat(val);
+  if (!n) return '--';
+  const mins = Math.floor(n / 60);
+  const secs = Math.floor(n % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
@@ -113,7 +114,7 @@ export default function Songs() {
 
       // Calculate stats from pagination total and current data
       const pag = res.data.pagination || {};
-      const totalDur = data.reduce((sum, s) => sum + (s.duration || 0), 0);
+      const totalDur = data.reduce((sum, s) => sum + (parseFloat(s.duration) || 0), 0);
       const favCount = data.filter(s => s.is_favorite).length;
       setStats({
         total: pag.total || data.length,
